@@ -137,8 +137,8 @@ void Camera::resetDirect() {
 }
 
 void Camera::render(Clocker &clocker) {
-  Animation::move(&this->x, this->xTrg, astraConfig.cameraAnimationSpeed, clocker);
-  Animation::move(&this->y, this->yTrg, astraConfig.cameraAnimationSpeed, clocker);
+  Animation::move(this->x, this->xTrg, astraConfig.cameraAnimationSpeed, clocker);
+  Animation::move(this->y, this->yTrg, astraConfig.cameraAnimationSpeed, clocker);
 }
 
 void Camera::update(Menu *_menu, Selector *_selector, Clocker &clocker) {

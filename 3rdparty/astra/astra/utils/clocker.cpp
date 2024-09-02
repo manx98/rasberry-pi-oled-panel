@@ -2,6 +2,7 @@
 // Created by wenyiyu on 2024/9/2.
 //
 
+#include <csignal>
 #include "astra/utils/clocker.h"
 #include "astra/hal/hal.h"
 
@@ -40,5 +41,12 @@ namespace astra {
         last_duration_ = 0;
         duration_ = 0;
         last_time_ = HAL::millis();
+    }
+
+    void Clocker::waitUntil(int64_t except) {
+        auto current = currentDuration();
+        if (current < except) {
+            usleep((except - current) * 1000);
+        }
     }
 }

@@ -92,13 +92,13 @@ void Selector::render(std::vector<float> _camera, Clocker &clocker) {
   Item::updateConfig();
 
   //实际上 这里已经实现过渡动画了
-  Animation::move(&x, xTrg, astraConfig.selectorXAnimationSpeed, clocker);
-  Animation::move(&y, yTrg, astraConfig.selectorYAnimationSpeed, clocker);
-  Animation::move(&h, hTrg, astraConfig.selectorHeightAnimationSpeed, clocker);
-  Animation::move(&w, wTrg, astraConfig.selectorWidthAnimationSpeed, clocker);
+  Animation::move(x, xTrg, astraConfig.selectorXAnimationSpeed, clocker);
+  Animation::move(y, yTrg, astraConfig.selectorYAnimationSpeed, clocker);
+  Animation::move(h, hTrg, astraConfig.selectorHeightAnimationSpeed, clocker);
+  Animation::move(w, wTrg, astraConfig.selectorWidthAnimationSpeed, clocker);
 
   if (menu->getType() == "Tile") {
-    Animation::move(&yText, yTextTrg, astraConfig.selectorYAnimationSpeed, clocker);
+    Animation::move(yText, yTextTrg, astraConfig.selectorYAnimationSpeed, clocker);
 
     //draw text.
     //文字不受摄像机的影响

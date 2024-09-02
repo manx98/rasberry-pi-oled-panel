@@ -24,7 +24,7 @@ struct config {
   float fadeAnimationSpeed = 100;
   float cameraAnimationSpeed = 80;
   float logoAnimationSpeed = 70;
-  int perFrameMills = 10; // 每一帧渲染需要的时间()
+  int perFrameMills = 6; // 每一帧渲染时间（低于硬件速度会导致丢帧）
 
   bool tileUnfold = true;
   bool listUnfold = true;

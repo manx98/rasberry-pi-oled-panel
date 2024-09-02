@@ -23,6 +23,8 @@ namespace astra {
         int64_t lastDuration();
 
         void reset();
+
+        void waitUntil(int64_t except);
     private:
         int64_t last_time_{0};
         int64_t duration_{0};

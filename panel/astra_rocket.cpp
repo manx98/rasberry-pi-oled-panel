@@ -22,7 +22,7 @@ void astraCoreInit(void) {
   HAL::inject(new Sh1106Hal());
 
   HAL::delay(350);
-//  astra::drawLogo(10);
+  astra::drawLogo(10000);
 
   rootPage->addItem(new astra::List("test1"));
   rootPage->addItem(new astra::List("测试2"));

@@ -173,7 +173,7 @@ void List::render(const std::vector<float> &_camera, Clocker &clocker) {
                      astraConfig.listTextMargin + _camera[1],
                      _iter->title);
     //这里的yTrg在addItem的时候就已经确定了
-    Animation::move(&_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, clocker);
+    Animation::move(_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, clocker);
   }
 
   //draw bar.
@@ -196,8 +196,8 @@ void List::render(const std::vector<float> &_camera, Clocker &clocker) {
     HAL::setDrawType(1);
   }
 
-  Animation::move(&positionForeground.hBar, positionForeground.hBarTrg, astraConfig.listAnimationSpeed, clocker);
-  Animation::move(&positionForeground.xBar, positionForeground.xBarTrg, astraConfig.listAnimationSpeed, clocker);
+  Animation::move(positionForeground.hBar, positionForeground.hBarTrg, astraConfig.listAnimationSpeed, clocker);
+  Animation::move(positionForeground.xBar, positionForeground.xBarTrg, astraConfig.listAnimationSpeed, clocker);
 }
 
 void Tile::childPosInit(const std::vector<float> &_camera) {
@@ -303,7 +303,7 @@ void Tile::render(const std::vector<float> &_camera, Clocker &clocker) {
                  astraConfig.tilePicHeight,
                  _iter->pic.data());
     //这里的xTrg在addItem的时候就已经确定了
-    Animation::move(&_iter->position.x,
+    Animation::move(_iter->position.x,
                     _iter->position.xTrg,
                     astraConfig.tileAnimationSpeed, clocker);
   }
@@ -343,9 +343,9 @@ void Tile::render(const std::vector<float> &_camera, Clocker &clocker) {
   //draw dotted line.
   HAL::drawHDottedLine(0, positionForeground.yDottedLine, systemConfig.screenWeight);
 
-  Animation::move(&positionForeground.yDottedLine, positionForeground.yDottedLineTrg, astraConfig.tileAnimationSpeed, clocker);
-  Animation::move(&positionForeground.yArrow, positionForeground.yArrowTrg, astraConfig.tileAnimationSpeed, clocker);
-  Animation::move(&positionForeground.wBar, positionForeground.wBarTrg, astraConfig.tileAnimationSpeed, clocker);
-  Animation::move(&positionForeground.yBar, positionForeground.yBarTrg, astraConfig.tileAnimationSpeed, clocker);
+  Animation::move(positionForeground.yDottedLine, positionForeground.yDottedLineTrg, astraConfig.tileAnimationSpeed, clocker);
+  Animation::move(positionForeground.yArrow, positionForeground.yArrowTrg, astraConfig.tileAnimationSpeed, clocker);
+  Animation::move(positionForeground.wBar, positionForeground.wBarTrg, astraConfig.tileAnimationSpeed, clocker);
+  Animation::move(positionForeground.yBar, positionForeground.yBarTrg, astraConfig.tileAnimationSpeed, clocker);
 }
 }
