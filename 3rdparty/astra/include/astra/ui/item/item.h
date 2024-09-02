@@ -93,19 +93,14 @@ namespace astra {
 
     inline void Animation::move(float &_pos, float _posTrg, float _speed, Clocker &clocker) {
         auto update_times = clocker.lastDuration() / getUIConfig().perFrameMills;
-        if (update_times <= 0) {
-            return;
+        if (update_times < 1) {
+            update_times = 1;
         }
-        for (; update_times > 0; update_times--) {
-            if (_pos != _posTrg) {
-                if (std::fabs(_pos - _posTrg) <= 1.0f) {
-                    _pos = _posTrg;
-                    return;
-                } else {
-                    _pos += (_posTrg - _pos) / ((100 - _speed) / 1.0f);
-                }
+        for (; update_times > 0 && _pos != _posTrg; update_times--) {
+            if (std::fabs(_pos - _posTrg) <= 1.0f) {
+                _pos = _posTrg;
             } else {
-                return;
+                _pos += (_posTrg - _pos) / ((100 - _speed) / 1.0f);
             }
         }
     }
