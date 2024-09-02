@@ -8,6 +8,7 @@
 #include <cmath>
 #include "astra/hal/hal.h"
 #include "astra/config/config.h"
+#include "astra/utils/clocker.h"
 
 namespace astra {
 
@@ -30,7 +31,7 @@ namespace astra {
 
         static void blur();
 
-        static void move(float *_pos, float _posTrg, float _speed, int64_t duration);
+        static void move(float *_pos, float _posTrg, float _speed, Clocker &clocker);
     };
 
     inline void Animation::entry() {}
@@ -90,22 +91,19 @@ namespace astra {
         for (uint16_t i = 0; i < bufferLen; ++i) bufferPointer[i] = bufferPointer[i] & (i % 2 == 0 ? 0x55 : 0xAA);
     }
 
-    inline void Animation::move(float *_pos, float _posTrg, float _speed, int64_t duration) {
-        int64_t update_times = 1;
-        if(duration <= 0) {
+    inline void Animation::move(float *_pos, float _posTrg, float _speed, Clocker &clocker) {
+        auto update_times = clocker.lastDuration() / getUIConfig().perFrameMills;
+        if (update_times <= 0) {
             return;
         }
-        update_times = duration * 10;
-        printf("Animation::move ==> %ld\n", update_times);
-        for(;update_times > 0; update_times--) {
+        for (; update_times > 0; update_times--) {
             if (*_pos != _posTrg) {
                 if (std::fabs(*_pos - _posTrg) <= 1.0f) {
                     *_pos = _posTrg;
                     return;
-                }
-                else {
+                } else {
                     *_pos += (_posTrg - *_pos) / ((100 - _speed) / 1.0f);
-                };
+                }
             } else {
                 return;
             }

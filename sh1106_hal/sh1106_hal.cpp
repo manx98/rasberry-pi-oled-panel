@@ -9,9 +9,12 @@
 #define I2C_BUS 1
 #define I2C_ADDRESS 0x3c * 2
 #define GPIO_CHIP_PATH "/dev/gpiochip0"
-#define GPIO_KEY_0 25
-#define GPIO_KEY_1 26
-#define GPIO_PRESS_KEY 16
+#define GPIO_KEY_PREV 26
+#define GPIO_KEY_NEXT 25
+#define GPIO_KEY_CONFIRM 16
+#define GPIO_KEY_CANCEL 24
+
+static std::vector<int> HAL_GPIO_PINS{GPIO_KEY_PREV, GPIO_KEY_NEXT, GPIO_KEY_CONFIRM, GPIO_KEY_CANCEL};
 
 void Sh1106Hal::init() {
     HALDreamCore::init();
@@ -28,36 +31,18 @@ void Sh1106Hal::init() {
     u8g2_SetFontMode(&canvasBuffer, 1); /*字体模式选择*/
     u8g2_SetFontDirection(&canvasBuffer, 0); /*字体方向选择*/
     u8g2_SetFont(&canvasBuffer, u8g2_font_myfont); /*字库选择*/
-
-    key0_ = gpio_new();
-    if (gpio_open(key0_, GPIO_CHIP_PATH, GPIO_KEY_0, GPIO_DIR_IN) < 0) {
-        fprintf(stderr, "gpio_open(): %s\n", gpio_errmsg(key0_));
-        exit(1);
-    }
-
-    key1_ = gpio_new();
-    if (gpio_open(key1_, GPIO_CHIP_PATH, GPIO_KEY_1, GPIO_DIR_IN) < 0) {
-        fprintf(stderr, "gpio_open(): %s\n", gpio_errmsg(key1_));
-        exit(1);
-    }
-
-    press_key_ = gpio_new();
-    if (gpio_open(press_key_, GPIO_CHIP_PATH, GPIO_PRESS_KEY, GPIO_DIR_IN) < 0) {
-        fprintf(stderr, "gpio_open(): %s\n", gpio_errmsg(press_key_));
-        exit(1);
+    for(int i=0; i< key::KEY_NUM;i++){
+        keys_[i] = gpio_new();
+        if (gpio_open(keys_[i], GPIO_CHIP_PATH, HAL_GPIO_PINS[i], GPIO_DIR_IN) < 0) {
+            fprintf(stderr, "gpio_open(): %s\n", gpio_errmsg(keys_[i]));
+            exit(1);
+        }
     }
 }
 
 bool Sh1106Hal::_getKey(key::KEY_INDEX _keyIndex) {
     bool clicked{false};
-    gpio_read(press_key_, &clicked);
-    if (clicked) {
-        return true;
-    } else if (_keyIndex == key::KEY_0) {
-        gpio_read(key0_, &clicked);
-    } else if (_keyIndex == key::KEY_1) {
-        gpio_read(key1_, &clicked);
-    }
+    gpio_read(keys_[_keyIndex], &clicked);
     return clicked;
 };
 

@@ -136,12 +136,12 @@ void Camera::resetDirect() {
   goDirect(this->xInit, this->yInit);
 }
 
-void Camera::render(int64_t duration) {
-  Animation::move(&this->x, this->xTrg, astraConfig.cameraAnimationSpeed, duration);
-  Animation::move(&this->y, this->yTrg, astraConfig.cameraAnimationSpeed, duration);
+void Camera::render(Clocker &clocker) {
+  Animation::move(&this->x, this->xTrg, astraConfig.cameraAnimationSpeed, clocker);
+  Animation::move(&this->y, this->yTrg, astraConfig.cameraAnimationSpeed, clocker);
 }
 
-void Camera::update(Menu *_menu, Selector *_selector, int64_t duration) {
+void Camera::update(Menu *_menu, Selector *_selector, Clocker &clocker) {
 
   if (_menu->cameraPosMemoryFlag) {
     go(0 - _menu->getCameraMemoryPos()[0], 0 - _menu->getCameraMemoryPos()[1]);
@@ -152,6 +152,6 @@ void Camera::update(Menu *_menu, Selector *_selector, int64_t duration) {
   if (_menu->getType() == "List") goToListItemRolling(dynamic_cast<List*>(_menu));
   else if (_menu->getType() == "Tile") goToTileItem(_menu->selectIndex);
 
-  this->render(duration);
+  this->render(clocker);
 }
 }

@@ -151,7 +151,7 @@ List::List(const std::string &_title, const std::vector<unsigned char> &_pic) {
   this->positionForeground = {};
 }
 
-void List::render(const std::vector<float> &_camera, int64_t duration) {
+void List::render(const std::vector<float> &_camera, Clocker &clocker) {
   Item::updateConfig();
 
   HAL::setDrawType(1);
@@ -173,7 +173,7 @@ void List::render(const std::vector<float> &_camera, int64_t duration) {
                      astraConfig.listTextMargin + _camera[1],
                      _iter->title);
     //这里的yTrg在addItem的时候就已经确定了
-    Animation::move(&_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, duration);
+    Animation::move(&_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, clocker);
   }
 
   //draw bar.
@@ -196,8 +196,8 @@ void List::render(const std::vector<float> &_camera, int64_t duration) {
     HAL::setDrawType(1);
   }
 
-  Animation::move(&positionForeground.hBar, positionForeground.hBarTrg, astraConfig.listAnimationSpeed, duration);
-  Animation::move(&positionForeground.xBar, positionForeground.xBarTrg, astraConfig.listAnimationSpeed, duration);
+  Animation::move(&positionForeground.hBar, positionForeground.hBarTrg, astraConfig.listAnimationSpeed, clocker);
+  Animation::move(&positionForeground.xBar, positionForeground.xBarTrg, astraConfig.listAnimationSpeed, clocker);
 }
 
 void Tile::childPosInit(const std::vector<float> &_camera) {
@@ -291,7 +291,7 @@ Tile::Tile(const std::string &_title, const std::vector<unsigned char> &_pic) {
   this->positionForeground = {};
 }
 
-void Tile::render(const std::vector<float> &_camera, int64_t duration) {
+void Tile::render(const std::vector<float> &_camera, Clocker &clocker) {
   Item::updateConfig();
 
   HAL::setDrawType(1);
@@ -305,7 +305,7 @@ void Tile::render(const std::vector<float> &_camera, int64_t duration) {
     //这里的xTrg在addItem的时候就已经确定了
     Animation::move(&_iter->position.x,
                     _iter->position.xTrg,
-                    astraConfig.tileAnimationSpeed, duration);
+                    astraConfig.tileAnimationSpeed, clocker);
   }
 
   //draw bar.
@@ -343,9 +343,9 @@ void Tile::render(const std::vector<float> &_camera, int64_t duration) {
   //draw dotted line.
   HAL::drawHDottedLine(0, positionForeground.yDottedLine, systemConfig.screenWeight);
 
-  Animation::move(&positionForeground.yDottedLine, positionForeground.yDottedLineTrg, astraConfig.tileAnimationSpeed, duration);
-  Animation::move(&positionForeground.yArrow, positionForeground.yArrowTrg, astraConfig.tileAnimationSpeed, duration);
-  Animation::move(&positionForeground.wBar, positionForeground.wBarTrg, astraConfig.tileAnimationSpeed, duration);
-  Animation::move(&positionForeground.yBar, positionForeground.yBarTrg, astraConfig.tileAnimationSpeed, duration);
+  Animation::move(&positionForeground.yDottedLine, positionForeground.yDottedLineTrg, astraConfig.tileAnimationSpeed, clocker);
+  Animation::move(&positionForeground.yArrow, positionForeground.yArrowTrg, astraConfig.tileAnimationSpeed, clocker);
+  Animation::move(&positionForeground.wBar, positionForeground.wBarTrg, astraConfig.tileAnimationSpeed, clocker);
+  Animation::move(&positionForeground.yBar, positionForeground.yBarTrg, astraConfig.tileAnimationSpeed, clocker);
 }
 }

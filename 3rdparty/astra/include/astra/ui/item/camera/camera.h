@@ -53,8 +53,8 @@ public:
   void reset();
   void resetDirect();
 
-  void update(Menu *_menu, Selector *_selector, int64_t duration);
-  void render(int64_t duration);
+  void update(Menu *_menu, Selector *_selector, Clocker &clocker);
+  void render(Clocker &clocker);
 };
 
 }

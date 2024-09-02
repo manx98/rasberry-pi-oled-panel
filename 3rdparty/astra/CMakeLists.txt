@@ -12,6 +12,7 @@ set(SRC
         ./astra/ui/item/widget/widget.cpp
         ./astra/ui/launcher.cpp
         ./astra/app/astra_app.cpp
+        ./astra/utils/clocker.cpp
 )
 include_directories(include)
 

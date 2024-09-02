@@ -16,27 +16,18 @@ namespace oled {
 }
 
 namespace key {
-typedef enum keyFilter {
-  CHECKING = 0,
-  KEY_0_CONFIRM,
-  KEY_1_CONFIRM,
-  RELEASED,
-} KEY_FILTER;
 
 typedef enum keyAction {
   INVALID = 0,
+  CHECKING,
   CLICK,
-  PRESS,
 } KEY_ACTION;
 
-typedef enum KeyType {
-  KEY_NOT_PRESSED = 0,
-  KEY_PRESSED,
-} KEY_TYPE;
-
 typedef enum keyIndex {
-  KEY_0 = 0,
-  KEY_1,
+  KEY_PREV = 0,
+  KEY_NEXT,
+  KEY_CONFIRM,
+  KEY_CANCEL,
   KEY_NUM,
 } KEY_INDEX;
 }
@@ -246,29 +237,18 @@ public:
 
 public:
   key::KEY_ACTION key[key::KEY_NUM] = {static_cast<key::keyAction>(0)};
-  key::KEY_TYPE keyFlag { static_cast<key::KEY_TYPE>(0) };
 
 public:
   static bool getKey(key::KEY_INDEX _keyIndex) { return get()->_getKey(_keyIndex); }
 
   virtual bool _getKey(key::KEY_INDEX _keyIndex) { return false; }
 
-  static bool getAnyKey() { return get()->_getAnyKey(); }
-
-  virtual bool _getAnyKey();
-
   static key::KEY_ACTION *getKeyMap() { return get()->key; }
 
-  static key::KEY_TYPE *getKeyFlag() { return &get()->keyFlag; }
-
 public:
-  static void keyScan() { get()->_keyScan(); }
+  static bool keyScan() { return get()->_keyScan(); }
 
-  virtual void _keyScan();
-
-  static void keyTest() { return get()->_keyTest(); }
-
-  virtual void _keyTest();
+  virtual bool _keyScan();
 
   /**
    * @brief system config.
@@ -282,5 +262,4 @@ public:
 
   virtual void _updateConfig() {}
 };
-
 #endif //ASTRA_CORE_SRC_HAL_HAL_H_

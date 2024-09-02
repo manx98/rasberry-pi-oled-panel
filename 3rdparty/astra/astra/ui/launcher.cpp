@@ -3,38 +3,27 @@
 //
 
 #include "astra/ui/launcher.h"
+#include "astra/utils/clocker.h"
 
 namespace astra {
-
     void Launcher::popInfo(std::string _info, uint16_t _time) {
-        bool init = false;
-        int64_t beginTime = HAL::millis();;
-        bool onRender = false;
-
-        auto last_render_time = beginTime;
-        if (!init) {
-            init = true;
-            onRender = true;
-        }
-
         float wPop = HAL::getFontWidth(_info) + 2 * getUIConfig().popMargin;  //宽度
         float hPop = HAL::getFontHeight() + 2 * getUIConfig().popMargin;  //高度
         float yPop = 0 - hPop - 8; //从屏幕上方滑入
         float yPopTrg = (HAL::getSystemConfig().screenHeight - hPop) / 3;  //目标位置 中间偏上
         float xPop = (HAL::getSystemConfig().screenWeight - wPop) / 2;  //居中
-        while (onRender) {
-            auto current = HAL::millis();
-            auto duration = last_render_time - current;
-            if(duration < 1) {
+        Clocker render_clocker;
+        Clocker pop_clocker;
+        while (true) {
+            if (render_clocker.currentDuration() < getUIConfig().perFrameMills) {
                 continue;
-            } else {
-                current = last_render_time;
             }
+            render_clocker.next();
             HAL::canvasClear();
             /*渲染一帧*/
-            currentMenu->render(camera->getPosition(),  duration);
-            selector->render(camera->getPosition(), duration);
-            camera->update(currentMenu, selector, duration);
+            currentMenu->render(camera->getPosition(), render_clocker);
+            selector->render(camera->getPosition(), render_clocker);
+            camera->update(currentMenu, selector, render_clocker);
             /*渲染一帧*/
 
             HAL::setDrawType(0);
@@ -45,23 +34,16 @@ namespace astra {
                              yPop + getUIConfig().popMargin + HAL::getFontHeight(),
                              _info);  //绘制文字
 
+            Animation::move(&yPop, yPopTrg, getUIConfig().popSpeed, render_clocker);  //动画
             HAL::canvasUpdate();
 
-            Animation::move(&yPop, yPopTrg, getUIConfig().popSpeed, duration);  //动画
-
             //这里条件可以加上一个如果按键按下 就滑出
-            if (last_render_time - beginTime >= _time) yPopTrg = 0 - hPop - 8;  //滑出
-
-            HAL::keyScan();
-            if (HAL::getAnyKey()) {
-                for (unsigned char i = 0; i < key::KEY_NUM; i++)
-                    if (HAL::getKeyMap()[i] == key::CLICK) yPopTrg = 0 - hPop - 8;  //滑出
-                std::fill(HAL::getKeyMap(), HAL::getKeyMap() + key::KEY_NUM, key::INVALID);
+            if (pop_clocker.currentDuration() >= _time || HAL::keyScan()) {
+                yPopTrg = 0 - hPop - 8; //滑出
             }
 
             if (yPop == 0 - hPop - 8) {
-                onRender = false;  //退出条件
-                init = false;
+                return;  //退出条件
             }
         }
     }
@@ -88,11 +70,11 @@ namespace astra {
 
         //如果当前页面指向的当前item没有后继 那就返回false
         if (currentMenu->getNextMenu() == nullptr) {
-            popInfo("unreferenced page!", 600);
+            popInfo("unreferenced page!", 800);
             return false;
         }
         if (currentMenu->getNextMenu()->getItemNum() == 0) {
-            popInfo("empty page!", 600);
+            popInfo("empty page!", 800);
             return false;
         }
 
@@ -110,12 +92,12 @@ namespace astra {
         return true;
     }
 
-/**
- * @brief 关闭选中的页面
- *
- * @return 是否成功关闭
- * @warning 仅可调用一次
- */
+    /**
+     * @brief 关闭选中的页面
+     *
+     * @return 是否成功关闭
+     * @warning 仅可调用一次
+     */
     bool Launcher::close() {
         if (currentMenu->getPreview() == nullptr) {
             popInfo("unreferenced page!", 600);
@@ -141,45 +123,31 @@ namespace astra {
     }
 
     void Launcher::update() {
-        auto current = HAL::millis();
-        if(!last_update_time_) {
-            last_update_time_ = current;
-        }
-        if(!last_key_scan_time_) {
-            last_key_scan_time_ = current;
-        }
-        auto duration = current - last_update_time_;
-        if(duration <= 0){
+        static Clocker render_clocker;
+        static Clocker key_clocker;
+        if (render_clocker.currentDuration() < getUIConfig().perFrameMills) {
             return;
         }
-        last_update_time_ = current;
-
+        render_clocker.next();
         HAL::canvasClear();
-
-        currentMenu->render(camera->getPosition(), duration);
+        currentMenu->render(camera->getPosition(), render_clocker);
         if (currentWidget != nullptr) currentWidget->render(camera->getPosition());
-        selector->render(camera->getPosition(), duration);
-        camera->update(currentMenu, selector, duration);
-        if (current - last_key_scan_time_ > 200) {
-            HAL::keyScan();
-            last_key_scan_time_ = current;
-        }
-
-        if (*HAL::getKeyFlag() == key::KEY_PRESSED) {
-            *HAL::getKeyFlag() = key::KEY_NOT_PRESSED;
-            for (unsigned char i = 0; i < key::KEY_NUM; i++) {
-                if (HAL::getKeyMap()[i] == key::CLICK) {
-                    if (i == 0) { selector->goPreview(); }//selector去到上一个项目
-                    else if (i == 1) { selector->goNext(); }//selector去到下一个项目
-                } else if (HAL::getKeyMap()[i] == key::PRESS) {
-                    if (i == 0) { close(); }//退出当前项目
-                    else if (i == 1) { open(); }//打开当前项目
+        selector->render(camera->getPosition(), render_clocker);
+        camera->update(currentMenu, selector, render_clocker);
+        if (key_clocker.currentDuration() > 50) {
+            if(HAL::keyScan()) {
+                if(HAL::getKeyMap()[key::KEY_PREV] == key::CLICK) {
+                    selector->goPreview(); // selector去到上一个项目
+                } else if(HAL::getKeyMap()[key::KEY_NEXT] == key::CLICK) {
+                    selector->goNext(); //selector去到下一个项目
+                } else if(HAL::getKeyMap()[key::KEY_CONFIRM] == key::CLICK) {
+                    open(); //打开当前项目
+                } else if(HAL::getKeyMap()[key::KEY_CANCEL] == key::CLICK) {
+                    close(); //退出当前项目
                 }
             }
-            std::fill(HAL::getKeyMap(), HAL::getKeyMap() + key::KEY_NUM, key::INVALID);
-            *HAL::getKeyFlag() = key::KEY_NOT_PRESSED;
+            key_clocker.reset();
         }
-
         HAL::canvasUpdate();
     }
 }

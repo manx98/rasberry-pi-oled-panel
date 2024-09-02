@@ -9,8 +9,9 @@
 #include "cstdint"
 #include "string"
 #include <vector>
-#include "../item.h"
-#include "../widget/widget.h"
+#include "astra/ui/item/item.h"
+#include "astra/ui/item/widget/widget.h"
+#include "astra/utils/clocker.h"
 
 namespace astra {
 
@@ -73,7 +74,7 @@ public:
   void deInit(); //每次关闭页面都要调用一次
 
 public:
-  virtual void render(const std::vector<float> &_camera, int64_t duration) {}  //render all child item.
+  virtual void render(const std::vector<float> &_camera, Clocker &clocker) {}  //render all child item.
 
 public:
   bool addItem(Menu *_page);
@@ -108,7 +109,7 @@ public:
   void refreshBoundary(unsigned char _l, unsigned char _r) { boundary = {_l, _r}; }
 
 public:
-  void render(const std::vector<float> &_camera, int64_t duration) override;
+  void render(const std::vector<float> &_camera, Clocker &clocker) override;
 };
 
 class Tile : public Menu {
@@ -136,7 +137,7 @@ public:
   Tile(const std::string &_title, const std::vector<unsigned char> &_pic);
 
 public:
-  void render(const std::vector<float> &_camera, int64_t duration) override;
+  void render(const std::vector<float> &_camera, Clocker &clocker) override;
 };
 
 }

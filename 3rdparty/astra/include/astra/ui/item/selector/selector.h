@@ -40,7 +40,7 @@ public:
   bool inject(Menu *_menu); //inject menu instance to prepare for render.
   bool destroy(); //destroy menu instance.
 
-  void render(std::vector<float> _camera, int64_t duration);
+  void render(std::vector<float> _camera, Clocker &clocker);
 };
 }
 #endif //ASTRA_CORE_SRC_ASTRA_UI_ELEMENT_SELECTOR_SELECTOR_H_

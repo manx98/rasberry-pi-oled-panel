@@ -16,9 +16,7 @@ public:
     void _screenOff() override;
     void init() override;
 private:
-    gpio_t *key0_;
-    gpio_t *key1_;
-    gpio_t *press_key_;
+    gpio_t * keys_[key::KEY_NUM];
 };
 
 
