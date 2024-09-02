@@ -8,7 +8,7 @@ namespace astra {
 
 void Selector::setPosition() {
   //在go的时候改变trg的值
-  if (menu->getType() == "Tile") {
+  if (menu->getType() == WIDGET_TYPE_TILE) {
 //    xTrg = menu->child[_index]->position.xTrg - (astraConfig.tileSelectBoxWeight - astraConfig.tilePicWidth) / 2;
 //    yTrg = menu->child[_index]->position.yTrg - (astraConfig.tileSelectBoxHeight - astraConfig.tilePicHeight) / 2;
     xTrg = menu->childMenu[menu->selectIndex]->position.xTrg - astraConfig.tileSelectBoxMargin;
@@ -19,7 +19,7 @@ void Selector::setPosition() {
 
     wTrg = astraConfig.tileSelectBoxWidth;
     hTrg = astraConfig.tileSelectBoxHeight;
-  } else if (menu->getType() == "List") {
+  } else if (menu->getType() == WIDGET_TYPE_LIST) {
     xTrg = menu->childMenu[menu->selectIndex]->position.xTrg - astraConfig.selectorMargin;
     yTrg = menu->childMenu[menu->selectIndex]->position.yTrg;
 
@@ -72,7 +72,6 @@ void Selector::goPreview() {
 bool Selector::inject(Menu *_menu) {
   if (_menu == nullptr) return false;
 
-  //if (this->menu != nullptr) return false;
   this->menu = _menu;
 
   go(this->menu->selectIndex);  //注入之后要初始化选择框的位置
@@ -97,7 +96,7 @@ void Selector::render(std::vector<float> _camera, Clocker &clocker) {
   Animation::move(h, hTrg, astraConfig.selectorHeightAnimationSpeed, clocker);
   Animation::move(w, wTrg, astraConfig.selectorWidthAnimationSpeed, clocker);
 
-  if (menu->getType() == "Tile") {
+  if (menu->getType() == WIDGET_TYPE_TILE) {
     Animation::move(yText, yTextTrg, astraConfig.selectorYAnimationSpeed, clocker);
 
     //draw text.
@@ -134,7 +133,7 @@ void Selector::render(std::vector<float> _camera, Clocker &clocker) {
                    astraConfig.tileSelectBoxLineLength);
 
     HAL::drawPixel(x + _camera[0] + w - 1, y + _camera[1] + h - 1);
-  } else if (menu->getType() == "List") {
+  } else if (menu->getType() == WIDGET_TYPE_LIST) {
     //animation(&h, hTrg, astraConfig.selectorAnimationSpeed);
 
     //draw select box.

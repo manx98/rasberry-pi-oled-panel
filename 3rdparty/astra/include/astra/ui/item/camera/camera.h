@@ -31,7 +31,7 @@ public:
   [[nodiscard]] std::vector<float> getPosition();
   [[nodiscard]] std::vector<float> getPositionTrg();
 
-  void init(const std::string &_type);
+  void init(WidgetType _type);
 
   //在启动器中新建selector和camera 然后注入menu render
   //在启动器中执行下述方法即可实现视角移动

@@ -17,7 +17,7 @@ namespace astra {
 
 class Menu : public Item {
 public:
-  [[nodiscard]] virtual std::string getType() const { return "Base"; }
+  [[nodiscard]] virtual WidgetType getType() const { return WIDGET_TYPE_BASE; }
 
 public:
   std::vector<float> cameraPosMemory = {};
@@ -83,7 +83,7 @@ public:
 
 class List : public Menu {
 public:
-  [[nodiscard]] std::string getType() const override { return "List"; }
+  [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_LIST; }
 
 public:
   //前景元素的坐标
@@ -114,7 +114,7 @@ public:
 
 class Tile : public Menu {
 public:
-  [[nodiscard]] std::string getType() const override { return "Tile"; }
+  [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_TILE; }
 
 public:
   //前景元素的坐标

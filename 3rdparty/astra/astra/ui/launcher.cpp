@@ -85,8 +85,6 @@ namespace astra {
         currentMenu->childPosInit(camera->getPosition());
 
         selector->inject(currentMenu);
-        //selector->go(currentPage->selectIndex);
-
         return true;
     }
 
