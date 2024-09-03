@@ -18,6 +18,8 @@ add_executable(${PROJECT_NAME} panel/main.cpp
         panel/astra_rocket.cpp
         sh1106_hal/sh1106_hal.cpp
         sh1106_hal/sh1106_hal.h
+        icons/app_icons.cpp
+        icons/app_icons.h
 )
 
 target_link_libraries(${PROJECT_NAME} astra u8g2-arm-linux periphery)
