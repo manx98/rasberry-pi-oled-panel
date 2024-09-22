@@ -1,0 +1,258 @@
+// Copyright(c) 2015-present, Gabi Melman & spdlog contributors.
+// Distributed under the MIT License (http://opensource.org/licenses/MIT)
+
+#pragma once
+
+// details/pattern_formatter-inl.m_h
+// fmt/bin_to_hex.m_h
+// fmt/bundled/format-inl.m_h
+#include <cctype>
+
+// details/file_helper-inl.m_h
+// details/os-inl.m_h
+// fmt/bundled/core.m_h
+// fmt/bundled/posix.m_h
+// logger-inl.m_h
+// sinks/daily_file_sink.m_h
+// sinks/stdout_sinks.m_h
+#include <cstdio>
+
+// details/os-inl.m_h
+// fmt/bundled/posix.m_h
+#include <cstdlib>
+
+// details/os-inl.m_h
+// details/pattern_formatter-inl.m_h
+// fmt/bundled/core.m_h
+// fmt/bundled/format-inl.m_h
+#include <cstring>
+
+// details/os-inl.m_h
+// details/os.m_h
+// details/pattern_formatter-inl.m_h
+// details/pattern_formatter.m_h
+// fmt/bundled/chrono.m_h
+// sinks/daily_file_sink.m_h
+// sinks/rotating_file_sink-inl.m_h
+#include <ctime>
+
+// fmt/bundled/format-inl.m_h
+#include <climits>
+
+// fmt/bundled/format-inl.m_h
+#include <cwchar>
+
+// fmt/bundled/format-inl.m_h
+// fmt/bundled/format.m_h
+#include <cmath>
+
+// fmt/bundled/format-inl.m_h
+#include <cstdarg>
+
+// details/file_helper-inl.m_h
+// fmt/bundled/format.m_h
+// fmt/bundled/posix.m_h
+// sinks/rotating_file_sink-inl.m_h
+#include <cerrno>
+
+// details/circular_q.m_h
+// details/thread_pool-inl.m_h
+// fmt/bundled/format-inl.m_h
+#include <cassert>
+
+// async_logger-inl.m_h
+// cfg/helpers-inl.m_h
+// log_levels.m_h
+// common.m_h
+// details/file_helper-inl.m_h
+// details/log_msg.m_h
+// details/os-inl.m_h
+// details/pattern_formatter-inl.m_h
+// details/pattern_formatter.m_h
+// details/registry-inl.m_h
+// details/registry.m_h
+// details/tcp_client-windows.m_h
+// details/tcp_client.m_h
+// fmt/bundled/core.m_h
+// sinks/android_sink.m_h
+// sinks/ansicolor_sink.m_h
+// sinks/basic_file_sink.m_h
+// sinks/daily_file_sink.m_h
+// sinks/dup_filter_sink.m_h
+// sinks/msvc_sink.m_h
+// sinks/ringbuffer_sink.m_h
+// sinks/rotating_file_sink-inl.m_h
+// sinks/rotating_file_sink.m_h
+// sinks/syslog_sink.m_h
+// sinks/tcp_sink.m_h
+// sinks/win_eventlog_sink.m_h
+// sinks/wincolor_sink.m_h
+// spdlog.m_h:
+#include <string>
+
+// cfg/helpers-inl.m_h
+// fmt/bundled/chrono.m_h
+#include <sstream>
+
+// fmt/bundled/ostream.m_h
+// sinks/ostream_sink.m_h
+#include <ostream>
+
+// cfg/log_levels.m_h
+// details/registry-inl.m_h
+// details/registry.m_h
+#include <unordered_map>
+
+// details/circular_q.m_h
+// details/pattern_formatter-inl.m_h
+// details/pattern_formatter.m_h
+// details/thread_pool.m_h
+// fmt/bundled/compile.m_h
+// logger.m_h
+// sinks/dist_sink.m_h
+// sinks/ringbuffer_sink.m_h
+// sinks/win_eventlog_sink.m_h
+#include <vector>
+
+// details/os-inl.m_h
+// details/pattern_formatter-inl.m_h
+// sinks/ansicolor_sink.m_h
+// sinks/syslog_sink.m_h
+// sinks/systemd_sink.m_h
+// sinks/wincolor_sink.m_h
+#include <array>
+
+// details/file_helper-inl.m_h
+// details/file_helper.m_h
+// sinks/rotating_file_sink-inl.m_h
+#include <tuple>
+
+// details/os-inl.m_h
+// fmt/bundled/format.m_h
+// fmt/bundled/printf.m_h
+#include <limits>
+
+// common.m_h
+// details/backtracer.m_h
+// details/null_mutex.m_h
+#include <atomic>
+
+// common.m_h
+// details/backtracer.m_h
+// details/null_mutex.m_h
+#include <locale>
+
+// common.m_h
+#include <initializer_list>
+
+// common.m_h
+#include <exception>
+
+// common.m_h
+// details/fmt_helper.m_h
+// fmt/bundled/core.m_h
+// fmt/bundled/ranges.m_h
+#include <type_traits>
+
+// cfg/helpers-inl.m_h
+// details/null_mutex.m_h
+// details/pattern_formatter-inl.m_h
+#include <utility>
+
+// async.m_h
+// async_logger-inl.m_h
+// common.m_h
+// details/pattern_formatter-inl.m_h
+// details/pattern_formatter.m_h
+// details/registry-inl.m_h
+// details/registry.m_h
+// details/thread_pool.m_h
+// fmt/bundled/format.m_h
+// sinks/ansicolor_sink.m_h
+// sinks/base_sink-inl.m_h
+// sinks/dist_sink.m_h
+// sinks/stdout_sinks-inl.m_h
+// sinks/wincolor_sink.m_h
+// spdlog.m_h
+#include <memory>
+
+// async.m_h
+// common.m_h
+// details/backtracer.m_h
+// details/periodic_worker.m_h
+// details/registry-inl.m_h
+// details/registry.m_h
+// details/thread_pool.m_h
+// sinks/tcp_sink.m_h
+// spdlog.m_h
+#include <functional>
+
+// details/mpmc_blocking_q.m_h
+// details/periodic_worker.m_h
+#include <condition_variable>
+
+// details/os-inl.m_h
+// fmt/bundled/format.m_h
+// fmt/bundled/printf.m_h
+// sinks/dist_sink.m_h
+#include <algorithm>
+
+// common.m_h
+// details/file_helper-inl.m_h
+// details/fmt_helper.m_h
+// details/os-inl.m_h
+// details/pattern_formatter-inl.m_h
+// details/pattern_formatter.m_h
+// details/periodic_worker.m_h
+// details/registry-inl.m_h
+// details/registry.m_h
+// details/thread_pool.m_h
+// fmt/bundled/chrono.m_h
+// sinks/android_sink.m_h
+// sinks/daily_file_sink.m_h
+// sinks/dup_filter_sink.m_h
+// sinks/rotating_file_sink-inl.m_h
+// sinks/rotating_file_sink.m_h
+// sinks/tcp_sink.m_h
+// spdlog.m_h
+#include <chrono>
+
+// details/file_helper-inl.m_h
+// details/os-inl.m_h
+// details/pattern_formatter-inl.m_h
+// details/periodic_worker.m_h
+// details/thread_pool.m_h
+// sinks/android_sink.m_h
+#include <thread>
+
+// async.m_h
+// details/backtracer.m_h
+// details/console_globals.m_h
+// details/mpmc_blocking_q.m_h
+// details/pattern_formatter-inl.m_h
+// details/periodic_worker.m_h
+// details/registry.m_h
+// sinks/android_sink.m_h
+// sinks/ansicolor_sink.m_h
+// sinks/basic_file_sink.m_h
+// sinks/daily_file_sink.m_h
+// sinks/dist_sink.m_h
+// sinks/dup_filter_sink.m_h
+// sinks/msvc_sink.m_h
+// sinks/null_sink.m_h
+// sinks/ostream_sink.m_h
+// sinks/ringbuffer_sink.m_h
+// sinks/rotating_file_sink-inl.m_h
+// sinks/rotating_file_sink.m_h
+// sinks/tcp_sink.m_h
+// sinks/win_eventlog_sink.m_h
+// sinks/wincolor_sink.m_h
+//
+// color_sinks.cpp
+// file_sinks.cpp
+// spdlog.cpp
+// stdout_sinks.cpp
+#include <mutex>
+
+// spdlog
+#include <spdlog/common.m_h>

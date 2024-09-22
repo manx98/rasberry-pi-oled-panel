@@ -2,6 +2,8 @@
 #ifndef ASTRA_WIDGET__H
 #define ASTRA_WIDGET__H
 
+#include <functional>
+#include <list>
 #include "astra/ui/item/item.h"
 
 namespace astra {
@@ -12,6 +14,31 @@ namespace astra {
         WIDGET_TYPE_SLIDER,
         WIDGET_TYPE_LIST,
         WIDGET_TYPE_TILE,
+    };
+
+    class Text {
+    private:
+        std::string m_text;
+        const unsigned char *m_font;
+        float m_w, m_h;
+    public:
+        Text(std::string _text, const unsigned char *_font);
+        [[nodiscard]] float getHeight() const;
+        [[nodiscard]] float getWidth() const;
+        void draw(float _x, float _y) const;
+    };
+
+    class TextBox {
+    private:
+        std::vector<Text> m_texts;
+        float m_w, m_h;
+    public:
+        explicit TextBox(const Text &_text);
+        TextBox(const std::initializer_list<Text> &_texts);
+        void add(Text _text);
+        void draw(float _x, float _y) const;
+        [[nodiscard]] float getWidth() const;
+        [[nodiscard]] float getHeight() const;
     };
 
     class Widget : public Item {
@@ -37,9 +64,15 @@ namespace astra {
 
     public:
         virtual void render(const std::vector<float> &_camera) {}
+
+        virtual bool onOpen() {
+            return true;
+        };
     };
 
     class CheckBox : public Widget {
+    private:
+        std::function<void(bool)> m_on_change = nullptr;
     public:
         [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_CHECK_BOCK; }
 
@@ -47,15 +80,7 @@ namespace astra {
         bool isCheck;
 
     public:
-        explicit CheckBox(bool &_value);  //check box.
-
-    public:
-        bool check();
-
-        bool uncheck();
-
-        bool toggle();
-
+        explicit CheckBox(bool default_value, std::function<void(bool)> on_change);  //check box.
     public:
         void init() override;
 
@@ -63,53 +88,10 @@ namespace astra {
 
     public:
         void renderIndicator(float _x, float _y, const std::vector<float> &_camera) override;
-
     public:
         void render(const std::vector<float> &_camera) override;
-    };
 
-    class PopUp : public Widget {
-    public:
-        [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_POP_UP; }
-
-    public:
-        typedef struct Position {
-            float x, xTrg;
-            float y, yTrg;
-        } Position;
-
-        Position position{};
-
-    private:
-        std::string title;
-        std::vector<std::string> options;
-        unsigned char direction;
-        unsigned char boundary;
-
-    public:
-        // 0: left 1: top 2: right 3: bottom
-        PopUp(unsigned char _direction,
-              const std::string &_title,
-              const std::vector<std::string> &_options,
-              unsigned char &_value);  //pop up.
-
-    public:
-        void selectNext();
-
-        void selectPreview();
-
-        bool select(unsigned char _index);
-
-    public:
-        void init() override;
-
-        void deInit() override;
-
-    public:
-        void renderIndicator(float _x, float _y, const std::vector<float> &_camera) override;
-
-    public:
-        void render(const std::vector<float> &_camera) override;
+        bool onOpen() override;
     };
 
     class Slider : public Widget {
@@ -159,6 +141,19 @@ namespace astra {
 
     public:
         void render(const std::vector<float> &_camera) override;
+    };
+
+    class SystemStatus : public Widget {
+    private:
+        std::function<void(SystemStatus*)> m_update;
+        std::string ip{"IP:"};
+        std::string speed_info{"↑0B/s ↓0B/s"};
+        std::string mem_info{"0B / 0B"};
+        std::string disk_info{"Disk: 0B / 0B"};
+        std::string cpu_info{"CPU: 0% 0℃"};
+    public:
+        explicit SystemStatus(std::function<void(SystemStatus*)> update);
+        bool onOpen() override;
     };
 }
 

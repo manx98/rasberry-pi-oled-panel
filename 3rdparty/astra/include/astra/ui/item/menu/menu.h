@@ -8,6 +8,7 @@
 
 #include "cstdint"
 #include "string"
+#include <utility>
 #include <vector>
 #include "astra/ui/item/item.h"
 #include "astra/ui/item/widget/widget.h"
@@ -15,130 +16,168 @@
 
 namespace astra {
 
-class Menu : public Item {
-public:
-  [[nodiscard]] virtual WidgetType getType() const { return WIDGET_TYPE_BASE; }
+    class Menu : public Item {
+    public:
+        explicit Menu(TextBox _title) : title(std::move(_title)) {};
 
-public:
-  std::vector<float> cameraPosMemory = {};
-  void rememberCameraPos(const std::vector<float> &_camera) {
-    cameraPosMemory = _camera;
-    cameraPosMemoryFlag = true;
-  }
-  [[nodiscard]] std::vector<float> getCameraMemoryPos() const { return cameraPosMemory; }
-  void resetCameraMemoryPos() { cameraPosMemory = {0, 0}; }
-  //编写一个变量 指示该页面到底有没有记忆
-  bool cameraPosMemoryFlag = false;
+        [[nodiscard]] virtual WidgetType getType() const { return WIDGET_TYPE_BASE; }
 
-public:
-  //存储其在父页面中的位置
-  //list中就是每一项对应的坐标 tile中就是每一个图片的坐标
-  typedef struct Position {
-    float x, xTrg;
-    float y, yTrg;
-  } Position;
+        class Event {
+        public:
+            virtual bool beforeOpen(Menu *current) = 0;
 
-  Position position{};
+            virtual bool beforeRender(Menu *current, const std::vector<float> &_camera, Clocker &clocker) = 0;
+        };
 
-  [[nodiscard]] Position getItemPosition(unsigned char _index) const;
-  virtual void childPosInit(const std::vector<float> &_camera) {}
-  virtual void forePosInit() {}
+    public:
+        std::vector<float> cameraPosMemory = {};
 
-public:
-  std::string title;
-  std::vector<unsigned char> pic;
+        void rememberCameraPos(const std::vector<float> &_camera) {
+            cameraPosMemory = _camera;
+            cameraPosMemoryFlag = true;
+        }
 
-protected:
-  std::vector<unsigned char> picDefault = {};
-  [[nodiscard]] std::vector<unsigned char> generateDefaultPic();
+        [[nodiscard]] std::vector<float> getCameraMemoryPos() const { return cameraPosMemory; }
 
-public:
-  Menu *parent{};
-  std::vector<Menu *> childMenu; //allow widget and menu.
-  std::vector<Widget *> childWidget;
-  unsigned char selectIndex{};
+        void resetCameraMemoryPos() { cameraPosMemory = {0, 0}; }
 
-  [[nodiscard]] unsigned char getItemNum() const;
-  [[nodiscard]] Menu *getNextMenu() const;  //启动器调用该方法来获取下一个页面
-  [[nodiscard]] Menu *getPreview() const;
+        //编写一个变量 指示该页面到底有没有记忆
+        bool cameraPosMemoryFlag = false;
 
-public:
-  bool initFlag = false;
+        virtual float getWidth() = 0;
 
-public:
-  Menu() = default;
-  ~Menu() = default;
+        virtual float getHeight() = 0;
 
-public:
-  void init(const std::vector<float>& _camera); //每次打开页面都要调用一次
-  void deInit(); //每次关闭页面都要调用一次
+    public:
+        //存储其在父页面中的位置
+        //list中就是每一项对应的坐标 tile中就是每一个图片的坐标
+        typedef struct Position {
+            float x, xTrg;
+            float y, yTrg;
+        } Position;
 
-public:
-  virtual void render(const std::vector<float> &_camera, Clocker &clocker) {}  //render all child item.
+        Position position{};
 
-public:
-  bool addItem(Menu *_page);
-  bool addItem(Menu *_page, Widget* _anyWidget); //新建一个带有控件的列表项
-};
+        [[nodiscard]] Position getItemPosition(unsigned char _index) const;
 
-class List : public Menu {
-public:
-  [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_LIST; }
+        virtual void childPosInit(const std::vector<float> &_camera) {}
 
-public:
-  //前景元素的坐标
-  typedef struct PositionForeground {
-    float hBar, hBarTrg;  //进度条高度
-    float xBar, xBarTrg;  //进度条x坐标
-  } PositionForeground;
+        virtual void forePosInit() {}
 
-  PositionForeground positionForeground{};
+        virtual bool onOpen() {
+            return true;
+        };
+    public:
+        TextBox title;
+        std::vector<unsigned char> pic;
 
-public:
-  void childPosInit(const std::vector<float> &_camera) override;
-  void forePosInit() override;
+    protected:
+        std::vector<unsigned char> picDefault = {};
 
-  List();
-  explicit List(const std::string &_title);
-  explicit List(const std::vector<unsigned char>& _pic);
-  List(const std::string &_title, const std::vector<unsigned char>& _pic);
+        [[nodiscard]] std::vector<unsigned char> generateDefaultPic();
 
-public:
-  std::vector<unsigned char> boundary = {0, static_cast<unsigned char>(systemConfig.screenHeight / astraConfig.listLineHeight - 1)};
-  [[nodiscard]] std::vector<unsigned char> getBoundary() const { return boundary; }
-  void refreshBoundary(unsigned char _l, unsigned char _r) { boundary = {_l, _r}; }
+    public:
+        Menu *parent{};
+        std::vector<Menu *> childMenu; //allow widget and menu.
+        std::vector<Widget *> childWidget;
+        unsigned char selectIndex{};
 
-public:
-  void render(const std::vector<float> &_camera, Clocker &clocker) override;
-};
+        [[nodiscard]] unsigned char getItemNum() const;
 
-class Tile : public Menu {
-public:
-  [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_TILE; }
+        [[nodiscard]] Menu *getNextMenu() const;  //启动器调用该方法来获取下一个页面
+        [[nodiscard]] Menu *getPreview() const;
 
-public:
-  //前景元素的坐标
-  typedef struct PositionForeground {
-    float wBar, wBarTrg;  //进度条宽度
-    float yBar, yBarTrg;  //进度条y坐标
-    float yArrow, yArrowTrg;
-    float yDottedLine, yDottedLineTrg;
-  } PositionForeground;
+    public:
+        bool initFlag = false;
 
-  PositionForeground positionForeground{};
+    public:
+        void init(const std::vector<float> &_camera); //每次打开页面都要调用一次
+        void deInit(); //每次关闭页面都要调用一次
 
-public:
-  void childPosInit(const std::vector<float> &_camera) override;
-  void forePosInit() override;
+    public:
+        virtual void render(const std::vector<float> &_camera, Clocker &clocker) {}  //render all child item.
 
-  Tile();
-  explicit Tile(const std::string &_title);
-  explicit Tile(const std::vector<unsigned char> &_pic);
-  Tile(const std::string &_title, const std::vector<unsigned char> &_pic);
+    public:
+        bool addItem(Menu *_page);
 
-public:
-  void render(const std::vector<float> &_camera, Clocker &clocker) override;
-};
+        bool addItem(Menu *_page, Widget *_anyWidget); //新建一个带有控件的列表项
+    };
+
+    class List : public Menu {
+    public:
+        [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_LIST; }
+
+    public:
+        //前景元素的坐标
+        typedef struct PositionForeground {
+            float hBar, hBarTrg;  //进度条高度
+            float xBar, xBarTrg;  //进度条x坐标
+        } PositionForeground;
+
+        PositionForeground positionForeground{};
+
+        float getWidth() override;
+
+        float getHeight() override;
+
+    public:
+        void childPosInit(const std::vector<float> &_camera) override;
+
+        void forePosInit() override;
+
+        explicit List(const TextBox &_title);
+
+        List(const TextBox &_title, const std::vector<unsigned char> &_pic);
+
+        List(const TextBox &_title, const std::vector<unsigned char> &_pic, Event *event);
+
+    public:
+        std::vector<unsigned char> boundary = {0, static_cast<unsigned char>(
+                systemConfig.screenHeight / astraConfig.listLineHeight - 1)};
+
+        [[nodiscard]] std::vector<unsigned char> getBoundary() const { return boundary; }
+
+        void refreshBoundary(unsigned char _l, unsigned char _r) { boundary = {_l, _r}; }
+
+        bool onOpen() override;
+
+    public:
+        void render(const std::vector<float> &_camera, Clocker &clocker) override;
+
+    private:
+        Event *m_event = nullptr;
+    };
+
+    class Tile : public Menu {
+    public:
+        [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_TILE; }
+
+    public:
+        //前景元素的坐标
+        typedef struct PositionForeground {
+            float wBar, wBarTrg;  //进度条宽度
+            float yBar, yBarTrg;  //进度条y坐标
+            float yArrow, yArrowTrg;
+            float yDottedLine, yDottedLineTrg;
+        } PositionForeground;
+
+        PositionForeground positionForeground{};
+
+    public:
+        void childPosInit(const std::vector<float> &_camera) override;
+
+        void forePosInit() override;
+
+        explicit Tile(const TextBox &_title);
+
+        Tile(const TextBox &_title, const std::vector<unsigned char> &_pic);
+
+    public:
+        void render(const std::vector<float> &_camera, Clocker &clocker) override;
+        float getWidth() override;
+
+        float getHeight() override;
+    };
 
 }
 

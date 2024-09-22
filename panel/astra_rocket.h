@@ -14,7 +14,7 @@ extern "C" {
 /*---- C ----*/
 
 void astraCoreInit(void);
-void astraCoreStart(void);
+[[noreturn]] void astraCoreStart(void);
 void astraCoreDestroy(void);
 
 /*---- C ----*/

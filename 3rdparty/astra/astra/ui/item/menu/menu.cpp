@@ -26,326 +26,315 @@
  */
 
 namespace astra {
-Menu::Position Menu::getItemPosition(unsigned char _index) const { return childMenu[_index]->position; }
+    Menu::Position Menu::getItemPosition(unsigned char _index) const { return childMenu[_index]->position; }
 
-std::vector<unsigned char> Menu::generateDefaultPic() {
-  this->picDefault.resize(120, 0xFF);
-  return this->picDefault;
-}
-
-unsigned char Menu::getItemNum() const { return childMenu.size(); }
-
-Menu *Menu::getNextMenu() const { return childMenu[selectIndex]; }
-
-Menu *Menu::getPreview() const { return parent; }
-
-void Menu::init(const std::vector<float>& _camera) { }
-
-void Menu::deInit() {
-  //todo 未实现完全
-  Animation::exit();
-}
-
-bool Menu::addItem(Menu *_page) {
-  if (_page == nullptr) return false;
-  if (!_page->childWidget.empty()) return false;
-
-    _page->parent = this;
-    this->childMenu.push_back(_page);
-    this->forePosInit();
-    return true;
-}
-
-bool Menu::addItem(Menu *_page, Widget *_anyWidget) {
-  if (_anyWidget == nullptr) return false;
-  if (this->addItem(_page)) {
-    _page->childWidget.push_back(_anyWidget);
-    _anyWidget->parent = _page;
-    _anyWidget->init();
-    return true;
-  } else return false;
-}
-
-void List::childPosInit(const std::vector<float> &_camera) {
-  unsigned char _index = 0;
-
-  for (auto _iter : childMenu) {
-    _iter->position.x = astraConfig.listTextMargin;
-    _iter->position.xTrg = astraConfig.listTextMargin;
-    _iter->position.yTrg = _index * astraConfig.listLineHeight;
-
-    _index++;
-
-    //受展开开关影响的坐标初始化
-    //根页面有开场动画 所以不需要从头展开
-    if (_iter->parent->parent == nullptr) { _iter->position.y = _iter->position.yTrg; continue; }
-    if (astraConfig.listUnfold) { _iter->position.y = _camera[1] - astraConfig.listLineHeight;
-      continue; } //text unfold from top.
-  }
-}
-
-void List::forePosInit() {
-  positionForeground.xBarTrg = systemConfig.screenWeight - astraConfig.listBarWeight;
-
-  //受展开开关影响的坐标初始化
-  if (astraConfig.listUnfold) positionForeground.hBar = 0;  //bar unfold from top.
-  else positionForeground.hBar = positionForeground.hBarTrg;
-
-  //始终执行的坐标初始化
-  positionForeground.xBar = systemConfig.screenWeight;
-}
-
-List::List() {
-  this->title = "-unknown";
-  this->pic = generateDefaultPic();
-
-  this->selectIndex = 0;
-
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
-
-  this->position = {};
-  this->positionForeground = {};
-}
-
-List::List(const std::string &_title) {
-  this->title = _title;
-  this->pic = generateDefaultPic();
-
-  this->selectIndex = 0;
-
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
-
-  this->position = {};
-  this->positionForeground = {};
-}
-
-List::List(const std::vector<unsigned char> &_pic) {
-  this->title = "-unknown";
-  this->pic = _pic;
-
-  this->selectIndex = 0;
-
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
-
-  this->position = {};
-  this->positionForeground = {};
-}
-
-List::List(const std::string &_title, const std::vector<unsigned char> &_pic) {
-  this->title = _title;
-  this->pic = _pic;
-
-  this->selectIndex = 0;
-
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
-
-  this->position = {};
-  this->positionForeground = {};
-}
-
-void List::render(const std::vector<float> &_camera, Clocker &clocker) {
-  Item::updateConfig();
-
-  HAL::setDrawType(1);
-  //allow x > screen height, y > screen weight.
-  //scan all children, draw text and widget on the list.
-  for (auto _iter : childMenu) {
-    //绘制控件在列表中的指示器
-    if (!_iter->childWidget.empty()) {
-      for (auto _widget : _iter->childWidget) {
-        _widget->renderIndicator(
-            systemConfig.screenWeight - astraConfig.checkBoxRightMargin - astraConfig.checkBoxWidth,
-            _iter->position.y + astraConfig.checkBoxTopMargin,
-            _camera);
-      }
+    std::vector<unsigned char> Menu::generateDefaultPic() {
+        this->picDefault.resize(120, 0xFF);
+        return this->picDefault;
     }
-    //绘制文字
-    HAL::drawChinese(_iter->position.x + _camera[0],
-                     _iter->position.y + astraConfig.listTextHeight +
-                     astraConfig.listTextMargin + _camera[1],
-                     _iter->title);
-    //这里的yTrg在addItem的时候就已经确定了
-    Animation::move(_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, clocker);
-  }
 
-  //draw bar.
-  positionForeground.hBarTrg = (selectIndex + 1) * ((float) systemConfig.screenHeight / getItemNum());
-  //画指示线
-  HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight, 0, astraConfig.listBarWeight);
-  HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight,
-                 systemConfig.screenHeight - 1,
-                 astraConfig.listBarWeight);
-  HAL::drawVLine(systemConfig.screenWeight - ceil((float) astraConfig.listBarWeight / 2.0f),
-                 0,
-                 systemConfig.screenHeight);
-  //draw bar.
-  HAL::drawBox(positionForeground.xBar, 0, astraConfig.listBarWeight, positionForeground.hBar);
+    unsigned char Menu::getItemNum() const { return childMenu.size(); }
 
-  //light mode.
-  if (astraConfig.lightMode) {
-    HAL::setDrawType(2);
-    HAL::drawBox(0, 0, systemConfig.screenWeight, systemConfig.screenHeight);
-    HAL::setDrawType(1);
-  }
+    Menu *Menu::getNextMenu() const { return childMenu[selectIndex]; }
 
-  Animation::move(positionForeground.hBar, positionForeground.hBarTrg, astraConfig.listAnimationSpeed, clocker);
-  Animation::move(positionForeground.xBar, positionForeground.xBarTrg, astraConfig.listAnimationSpeed, clocker);
-}
+    Menu *Menu::getPreview() const { return parent; }
 
-void Tile::childPosInit(const std::vector<float> &_camera) {
-  unsigned char _index = 0;
+    void Menu::init(const std::vector<float> &_camera) {}
 
-  for (auto _iter : childMenu) {
-    _iter->position.y = 0;
-    _iter->position.xTrg = systemConfig.screenWeight / 2 - astraConfig.tilePicWidth / 2 +
-                           (_index) * (astraConfig.tilePicMargin + astraConfig.tilePicWidth);
-    _iter->position.yTrg = astraConfig.tilePicTopMargin;
+    void Menu::deInit() {
+        //todo 未实现完全
+        Animation::exit();
+    }
 
-    _index++;
+    bool Menu::addItem(Menu *_page) {
+        if (_page == nullptr) return false;
+        if (!_page->childWidget.empty()) return false;
+        _page->parent = this;
+        this->childMenu.push_back(_page);
+        this->forePosInit();
+        return true;
+    }
 
-    if (_iter->parent->parent == nullptr) { _iter->position.x = _iter->position.xTrg; continue; }
-    if (astraConfig.tileUnfold) { _iter->position.x = _camera[0] - astraConfig.tilePicWidth; continue; } //unfold from left.
-  }
-}
+    bool Menu::addItem(Menu *_page, Widget *_anyWidget) {
+        if (_anyWidget == nullptr) return false;
+        if (this->addItem(_page)) {
+            _page->childWidget.push_back(_anyWidget);
+            _anyWidget->parent = _page;
+            _anyWidget->init();
+            return true;
+        } else return false;
+    }
 
-void Tile::forePosInit() {
-  positionForeground.yBarTrg = 0;
-  positionForeground.yArrowTrg = systemConfig.screenHeight - astraConfig.tileArrowBottomMargin;
-  positionForeground.yDottedLineTrg = systemConfig.screenHeight - astraConfig.tileDottedLineBottomMargin;
+    void List::childPosInit(const std::vector<float> &_camera) {
+        float top = 0;
+        for (auto _iter: childMenu) {
+            //TODO 实现动态列表高度
+            _iter->position.x = astraConfig.listTextMargin;
+            _iter->position.xTrg = astraConfig.listTextMargin;
+            _iter->position.yTrg = top;
 
-  if (astraConfig.tileUnfold) positionForeground.wBar = 0;  //bar unfold from left.
-  else positionForeground.wBar = positionForeground.wBarTrg;
+            top += _iter->title.getHeight() + astraConfig.listTextMargin;
 
-  //position.y = -astraConfig.tilePicHeight * 2;
+            //受展开开关影响的坐标初始化
+            //根页面有开场动画 所以不需要从头展开
+            if (_iter->parent->parent == nullptr) {
+                _iter->position.y = _iter->position.yTrg;
+                continue;
+            }
+            if (astraConfig.listUnfold) {
+                _iter->position.y = _camera[1] - _iter->title.getHeight();
+                continue;
+            } //m_text unfold from top.
+        }
+    }
 
-  //始终执行的坐标初始化
-  //底部箭头和虚线的初始化
-  positionForeground.yArrow = systemConfig.screenHeight;
-  positionForeground.yDottedLine = systemConfig.screenHeight;
+    void List::forePosInit() {
+        positionForeground.xBarTrg = systemConfig.screenWeight - astraConfig.listBarWeight;
 
-  //顶部进度条的从上方滑入的初始化
-  positionForeground.yBar = 0 - astraConfig.tileBarHeight; //注意这里是坐标从屏幕外滑入 而不是height从0变大
-}
+        //受展开开关影响的坐标初始化
+        if (astraConfig.listUnfold) positionForeground.hBar = 0;  //bar unfold from top.
+        else positionForeground.hBar = positionForeground.hBarTrg;
 
-Tile::Tile() {
-  this->title = "-unknown";
-  this->pic = generateDefaultPic();
+        //始终执行的坐标初始化
+        positionForeground.xBar = systemConfig.screenWeight;
+    }
 
-  this->selectIndex = 0;
+    List::List(const TextBox &_title): Menu(_title) {
+        this->pic = generateDefaultPic();
 
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
+        this->selectIndex = 0;
 
-  this->position = {};
-  this->positionForeground = {};
-}
+        this->parent = nullptr;
+        this->childMenu.clear();
+        this->childWidget.clear();
 
-Tile::Tile(const std::string &_title) {
-  this->title = _title;
-  this->pic = generateDefaultPic();
+        this->position = {};
+        this->positionForeground = {};
+    }
 
-  this->selectIndex = 0;
+    List::List(const TextBox &_title, const std::vector<unsigned char> &_pic): Menu(_title) {
+        this->pic = _pic;
 
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
+        this->selectIndex = 0;
 
-  this->position = {};
-  this->positionForeground = {};
-}
+        this->parent = nullptr;
+        this->childMenu.clear();
+        this->childWidget.clear();
 
-Tile::Tile(const std::vector<unsigned char> &_pic) {
-  this->title = "-unknown";
-  this->pic = _pic;
+        this->position = {};
+        this->positionForeground = {};
+    }
 
-  this->selectIndex = 0;
+    List::List(const TextBox &_title, const std::vector<unsigned char> &_pic, Event *event) : List(_title, _pic) {
+        m_event = event;
+    }
 
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
+    void List::render(const std::vector<float> &_camera, Clocker &clocker) {
+        if (m_event && !m_event->beforeRender(this, _camera, clocker)) {
+            return;
+        }
+        Item::updateConfig();
 
-  this->position = {};
-  this->positionForeground = {};
-}
+        HAL::setDrawType(1);
+        //allow x > screen height, y > screen weight.
+        //scan all children, draw m_text and widget on the list.
+        float total_height = 0;
+        float select_height = 0;
+        int index = 0;
+        for (auto _iter: childMenu) {
+            //绘制控件在列表中的指示器
+            if (!_iter->childWidget.empty()) {
+                for (auto _widget: _iter->childWidget) {
+                    _widget->renderIndicator(
+                            systemConfig.screenWeight - astraConfig.checkBoxRightMargin - astraConfig.checkBoxWidth,
+                            _iter->position.y + astraConfig.checkBoxTopMargin,
+                            _camera);
+                }
+            }
+            total_height += _iter->title.getHeight();
+            if (index <= selectIndex){
+                select_height += _iter->title.getHeight();
+            }
+            //绘制文字
+            _iter->title.draw(_iter->position.x + _camera[0],
+                              _iter->position.y + _iter->title.getHeight() + _camera[1]);
+            //这里的yTrg在addItem的时候就已经确定了
+            Animation::move(_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, clocker);
+            index++;
+        }
 
-Tile::Tile(const std::string &_title, const std::vector<unsigned char> &_pic) {
-  this->title = _title;
-  this->pic = _pic;
+        //draw bar.
+        positionForeground.hBarTrg = systemConfig.screenHeight * (select_height / total_height);
+        //画指示线
+        HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight, 0, astraConfig.listBarWeight);
+        HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight,
+                       systemConfig.screenHeight - 1,
+                       astraConfig.listBarWeight);
+        HAL::drawVLine(systemConfig.screenWeight - ceil((float) astraConfig.listBarWeight / 2.0f),
+                       0,
+                       systemConfig.screenHeight);
+        //draw bar.
+        HAL::drawBox(positionForeground.xBar, 0, astraConfig.listBarWeight, positionForeground.hBar);
 
-  this->selectIndex = 0;
+        //light mode.
+        if (astraConfig.lightMode) {
+            HAL::setDrawType(2);
+            HAL::drawBox(0, 0, systemConfig.screenWeight, systemConfig.screenHeight);
+            HAL::setDrawType(1);
+        }
 
-  this->parent = nullptr;
-  this->childMenu.clear();
-  this->childWidget.clear();
+        Animation::move(positionForeground.hBar, positionForeground.hBarTrg, astraConfig.listAnimationSpeed, clocker);
+        Animation::move(positionForeground.xBar, positionForeground.xBarTrg, astraConfig.listAnimationSpeed, clocker);
+    }
 
-  this->position = {};
-  this->positionForeground = {};
-}
+    bool List::onOpen() {
+        if (m_event) {
+            return m_event->beforeOpen(this);
+        } else {
+            return true;
+        }
+    }
 
-void Tile::render(const std::vector<float> &_camera, Clocker &clocker) {
-  Item::updateConfig();
+    float List::getWidth() {
+        return 0;
+    }
 
-  HAL::setDrawType(1);
-  //draw pic.
-  for (auto _iter : childMenu) {
-    HAL::drawBMP(_iter->position.x + _camera[0],
-                 astraConfig.tilePicTopMargin + _camera[1],
-                 astraConfig.tilePicWidth,
-                 astraConfig.tilePicHeight,
-                 _iter->pic.data());
-    //这里的xTrg在addItem的时候就已经确定了
-    Animation::move(_iter->position.x,
-                    _iter->position.xTrg,
-                    astraConfig.tileAnimationSpeed, clocker);
-  }
+    float List::getHeight() {
+        return 0;
+    }
 
-  //draw bar.
-  //在屏幕最上方 两个像素高
-  positionForeground.wBarTrg = (selectIndex + 1) * ((float) systemConfig.screenWeight / getItemNum());
-  HAL::drawBox(0, positionForeground.yBar, positionForeground.wBar, astraConfig.tileBarHeight);
+    void Tile::childPosInit(const std::vector<float> &_camera) {
+        unsigned char _index = 0;
 
-  //draw left arrow.
-  HAL::drawHLine(astraConfig.tileArrowMargin, positionForeground.yArrow, astraConfig.tileArrowWidth);
-  HAL::drawPixel(astraConfig.tileArrowMargin + 1, positionForeground.yArrow + 1);
-  HAL::drawPixel(astraConfig.tileArrowMargin + 2, positionForeground.yArrow + 2);
-  HAL::drawPixel(astraConfig.tileArrowMargin + 1, positionForeground.yArrow - 1);
-  HAL::drawPixel(astraConfig.tileArrowMargin + 2, positionForeground.yArrow - 2);
+        for (auto _iter: childMenu) {
+            _iter->position.y = 0;
+            _iter->position.xTrg = systemConfig.screenWeight / 2 - astraConfig.tilePicWidth / 2 +
+                                   (_index) * (astraConfig.tilePicMargin + astraConfig.tilePicWidth);
+            _iter->position.yTrg = astraConfig.tilePicTopMargin;
 
-  //draw right arrow.
-  HAL::drawHLine(systemConfig.screenWeight - astraConfig.tileArrowWidth - astraConfig.tileArrowMargin,
-                 positionForeground.yArrow,
-                 astraConfig.tileArrowWidth);
-  HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth, positionForeground.yArrow + 1);
-  HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth - 1, positionForeground.yArrow + 2);
-  HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth, positionForeground.yArrow - 1);
-  HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth - 1, positionForeground.yArrow - 2);
+            _index++;
 
-  //draw left button.
-  HAL::drawHLine(astraConfig.tileBtnMargin, positionForeground.yArrow + 2, 9);
-  HAL::drawBox(astraConfig.tileBtnMargin + 2, positionForeground.yArrow + 2 - 4, 5, 4);
+            if (_iter->parent->parent == nullptr) {
+                _iter->position.x = _iter->position.xTrg;
+                continue;
+            }
+            if (astraConfig.tileUnfold) {
+                _iter->position.x = _camera[0] - astraConfig.tilePicWidth;
+                continue;
+            } //unfold from left.
+        }
+    }
 
-  //draw the right button.
-  HAL::drawHLine(systemConfig.screenWeight - astraConfig.tileBtnMargin - 9, positionForeground.yArrow + 2, 9);
-  HAL::drawBox(systemConfig.screenWeight - astraConfig.tileBtnMargin - 9 + 2,
-               positionForeground.yArrow + 2 - 4,
-               5,
-               4);
+    void Tile::forePosInit() {
+        positionForeground.yBarTrg = 0;
+        positionForeground.yArrowTrg = systemConfig.screenHeight - astraConfig.tileArrowBottomMargin;
+        positionForeground.yDottedLineTrg = systemConfig.screenHeight - astraConfig.tileDottedLineBottomMargin;
 
-  //draw dotted line.
-  HAL::drawHDottedLine(0, positionForeground.yDottedLine, systemConfig.screenWeight);
+        if (astraConfig.tileUnfold) positionForeground.wBar = 0;  //bar unfold from left.
+        else positionForeground.wBar = positionForeground.wBarTrg;
 
-  Animation::move(positionForeground.yDottedLine, positionForeground.yDottedLineTrg, astraConfig.tileAnimationSpeed, clocker);
-  Animation::move(positionForeground.yArrow, positionForeground.yArrowTrg, astraConfig.tileAnimationSpeed, clocker);
-  Animation::move(positionForeground.wBar, positionForeground.wBarTrg, astraConfig.tileAnimationSpeed, clocker);
-  Animation::move(positionForeground.yBar, positionForeground.yBarTrg, astraConfig.tileAnimationSpeed, clocker);
-}
+        //position.y = -astraConfig.tilePicHeight * 2;
+
+        //始终执行的坐标初始化
+        //底部箭头和虚线的初始化
+        positionForeground.yArrow = systemConfig.screenHeight;
+        positionForeground.yDottedLine = systemConfig.screenHeight;
+
+        //顶部进度条的从上方滑入的初始化
+        positionForeground.yBar = 0 - astraConfig.tileBarHeight; //注意这里是坐标从屏幕外滑入 而不是height从0变大
+    }
+
+    Tile::Tile(const TextBox &_title): Menu(_title) {
+        this->pic = generateDefaultPic();
+
+        this->selectIndex = 0;
+
+        this->parent = nullptr;
+        this->childMenu.clear();
+        this->childWidget.clear();
+
+        this->position = {};
+        this->positionForeground = {};
+    }
+
+    Tile::Tile(const TextBox &_title, const std::vector<unsigned char> &_pic): Menu(_title) {
+        this->pic = _pic;
+
+        this->selectIndex = 0;
+
+        this->parent = nullptr;
+        this->childMenu.clear();
+        this->childWidget.clear();
+
+        this->position = {};
+        this->positionForeground = {};
+    }
+
+    void Tile::render(const std::vector<float> &_camera, Clocker &clocker) {
+        Item::updateConfig();
+
+        HAL::setDrawType(1);
+        //draw pic.
+        for (auto _iter: childMenu) {
+            HAL::drawBMP(_iter->position.x + _camera[0],
+                         astraConfig.tilePicTopMargin + _camera[1],
+                         astraConfig.tilePicWidth,
+                         astraConfig.tilePicHeight,
+                         _iter->pic.data());
+            //这里的xTrg在addItem的时候就已经确定了
+            Animation::move(_iter->position.x,
+                            _iter->position.xTrg,
+                            astraConfig.tileAnimationSpeed, clocker);
+        }
+
+        //draw bar.
+        //在屏幕最上方 两个像素高
+        positionForeground.wBarTrg = (selectIndex + 1) * ((float) systemConfig.screenWeight / getItemNum());
+        HAL::drawBox(0, positionForeground.yBar, positionForeground.wBar, astraConfig.tileBarHeight);
+
+        //draw left arrow.
+        HAL::drawHLine(astraConfig.tileArrowMargin, positionForeground.yArrow, astraConfig.tileArrowWidth);
+        HAL::drawPixel(astraConfig.tileArrowMargin + 1, positionForeground.yArrow + 1);
+        HAL::drawPixel(astraConfig.tileArrowMargin + 2, positionForeground.yArrow + 2);
+        HAL::drawPixel(astraConfig.tileArrowMargin + 1, positionForeground.yArrow - 1);
+        HAL::drawPixel(astraConfig.tileArrowMargin + 2, positionForeground.yArrow - 2);
+
+        //draw right arrow.
+        HAL::drawHLine(systemConfig.screenWeight - astraConfig.tileArrowWidth - astraConfig.tileArrowMargin,
+                       positionForeground.yArrow,
+                       astraConfig.tileArrowWidth);
+        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth, positionForeground.yArrow + 1);
+        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth - 1, positionForeground.yArrow + 2);
+        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth, positionForeground.yArrow - 1);
+        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth - 1, positionForeground.yArrow - 2);
+
+        //draw left button.
+        HAL::drawHLine(astraConfig.tileBtnMargin, positionForeground.yArrow + 2, 9);
+        HAL::drawBox(astraConfig.tileBtnMargin + 2, positionForeground.yArrow + 2 - 4, 5, 4);
+
+        //draw the right button.
+        HAL::drawHLine(systemConfig.screenWeight - astraConfig.tileBtnMargin - 9, positionForeground.yArrow + 2, 9);
+        HAL::drawBox(systemConfig.screenWeight - astraConfig.tileBtnMargin - 9 + 2,
+                     positionForeground.yArrow + 2 - 4,
+                     5,
+                     4);
+
+        //draw dotted line.
+        HAL::drawHDottedLine(0, positionForeground.yDottedLine, systemConfig.screenWeight);
+
+        Animation::move(positionForeground.yDottedLine, positionForeground.yDottedLineTrg,
+                        astraConfig.tileAnimationSpeed, clocker);
+        Animation::move(positionForeground.yArrow, positionForeground.yArrowTrg, astraConfig.tileAnimationSpeed,
+                        clocker);
+        Animation::move(positionForeground.wBar, positionForeground.wBarTrg, astraConfig.tileAnimationSpeed, clocker);
+        Animation::move(positionForeground.yBar, positionForeground.yBarTrg, astraConfig.tileAnimationSpeed, clocker);
+    }
+
+    float Tile::getWidth() {
+        return 0;
+    }
+
+    float Tile::getHeight() {
+        return 0;
+    }
 }

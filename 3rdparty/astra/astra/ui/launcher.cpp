@@ -6,6 +6,11 @@
 #include "astra/utils/clocker.h"
 
 namespace astra {
+    Menu *Launcher::currentMenu = {};
+    Widget *Launcher::currentWidget = {};
+    Selector *Launcher::selector = {};
+    Camera *Launcher::camera = {};
+
     void Launcher::popInfo(std::string _info, uint16_t _time) {
         float wPop = HAL::getFontWidth(_info) + 2 * getUIConfig().popMargin;  //宽度
         float hPop = HAL::getFontHeight() + 2 * getUIConfig().popMargin;  //高度
@@ -65,13 +70,25 @@ namespace astra {
  * @warning 仅可调用一次
  */
     bool Launcher::open() {
-
+        auto child = currentMenu->getNextMenu();
         //如果当前页面指向的当前item没有后继 那就返回false
-        if (currentMenu->getNextMenu() == nullptr) {
+        if (child == nullptr) {
             popInfo("unreferenced page!", 800);
             return false;
         }
-        if (currentMenu->getNextMenu()->getItemNum() == 0) {
+        if(!child->onOpen()) {
+            return false;
+        }
+        if (!child->childMenu.empty()) {
+
+        } else if (!child->childWidget.empty()) {
+            for (auto &item: child->childWidget) {
+                if(!item->onOpen()){
+                    break;
+                }
+            }
+            return false;
+        } else {
             popInfo("empty page!", 800);
             return false;
         }
@@ -118,30 +135,60 @@ namespace astra {
         return true;
     }
 
-    void Launcher::update() {
-        static Clocker render_clocker;
+    key::keyIndex Launcher::getKey() {
         static Clocker key_clocker;
-        render_clocker.waitUntil(getUIConfig().perFrameMills);
-        render_clocker.next();
-        HAL::canvasClear();
-        currentMenu->render(camera->getPosition(), render_clocker);
-        if (currentWidget != nullptr) currentWidget->render(camera->getPosition());
-        selector->render(camera->getPosition(), render_clocker);
-        camera->update(currentMenu, selector, render_clocker);
+        auto value = key::KEY_NUM;
         if (key_clocker.currentDuration() > 50) {
             if (HAL::keyScan()) {
                 if (HAL::getKeyMap()[key::KEY_PREV] == key::CLICK) {
-                    selector->goPreview(); // selector去到上一个项目
+                    value = key::KEY_PREV;
                 } else if (HAL::getKeyMap()[key::KEY_NEXT] == key::CLICK) {
-                    selector->goNext(); //selector去到下一个项目
+                    value = key::KEY_NEXT;
                 } else if (HAL::getKeyMap()[key::KEY_CONFIRM] == key::CLICK) {
-                    open(); //打开当前项目
+                    value = key::KEY_CONFIRM;
                 } else if (HAL::getKeyMap()[key::KEY_CANCEL] == key::CLICK) {
-                    close(); //退出当前项目
+                    value = key::KEY_CANCEL;
                 }
             }
             key_clocker.reset();
         }
+        return value;
+    }
+
+    void Launcher::update(const std::function<void(Clocker &clocker, key::keyIndex active_key)>& render) {
+        static Clocker render_clocker;
+        render_clocker.waitUntil(getUIConfig().perFrameMills);
+        render_clocker.next();
+        HAL::canvasClear();
+        render(render_clocker, getKey());
         HAL::canvasUpdate();
+    }
+
+    void Launcher::update() {
+        update([&](Clocker &render_clocker, key::keyIndex active_key) {
+            currentMenu->render(camera->getPosition(), render_clocker);
+            if (currentWidget != nullptr) currentWidget->render(camera->getPosition());
+            selector->render(camera->getPosition(), render_clocker);
+            camera->update(currentMenu, selector, render_clocker);
+            switch (active_key) {
+                case key::KEY_PREV:
+                    selector->goPreview(); // selector去到上一个项目
+                    break;
+                case key::KEY_NEXT:
+                    selector->goNext(); //selector去到下一个项目
+                    break;
+                case key::KEY_CONFIRM: {
+                    render_clocker.pause();
+                    open(); //打开当前项目
+                    render_clocker.start();
+                }
+                    break;
+                case key::KEY_CANCEL:
+                    close(); //退出当前项目
+                    break;
+                case key::KEY_NUM:
+                    break;
+            }
+        });
     }
 }

@@ -9,22 +9,22 @@ namespace astra {
 void Selector::setPosition() {
   //在go的时候改变trg的值
   if (menu->getType() == WIDGET_TYPE_TILE) {
-//    xTrg = menu->child[_index]->position.xTrg - (astraConfig.tileSelectBoxWeight - astraConfig.tilePicWidth) / 2;
-//    yTrg = menu->child[_index]->position.yTrg - (astraConfig.tileSelectBoxHeight - astraConfig.tilePicHeight) / 2;
-    xTrg = menu->childMenu[menu->selectIndex]->position.xTrg - astraConfig.tileSelectBoxMargin;
-    yTrg = menu->childMenu[menu->selectIndex]->position.yTrg - astraConfig.tileSelectBoxMargin;
+    auto &childMenu = menu->childMenu[menu->selectIndex];
+    xTrg = childMenu->position.xTrg - astraConfig.tileSelectBoxMargin;
+    yTrg = childMenu->position.yTrg - astraConfig.tileSelectBoxMargin;
 
     yText = systemConfig.screenHeight; //给磁贴文字归零 从屏幕外滑入
-    yTextTrg = systemConfig.screenHeight - astraConfig.tileTextBottomMargin;
+    yTextTrg = systemConfig.screenHeight - childMenu->title.getHeight()  - astraConfig.tileTextBottomMargin;
 
     wTrg = astraConfig.tileSelectBoxWidth;
     hTrg = astraConfig.tileSelectBoxHeight;
   } else if (menu->getType() == WIDGET_TYPE_LIST) {
-    xTrg = menu->childMenu[menu->selectIndex]->position.xTrg - astraConfig.selectorMargin;
-    yTrg = menu->childMenu[menu->selectIndex]->position.yTrg;
+    auto &childMenu = menu->childMenu[menu->selectIndex];
+    xTrg = childMenu->position.xTrg - astraConfig.selectorMargin;
+    yTrg = childMenu->position.yTrg;
 
-    wTrg = (float) HAL::getFontWidth(menu->childMenu[menu->selectIndex]->title) + astraConfig.listTextMargin * 2;
-    hTrg = astraConfig.listLineHeight;
+    wTrg = childMenu->title.getWidth() + astraConfig.listTextMargin * 2;
+    hTrg = childMenu->title.getHeight() + astraConfig.listTextMargin;
   }
 }
 
@@ -99,13 +99,11 @@ void Selector::render(std::vector<float> _camera, Clocker &clocker) {
   if (menu->getType() == WIDGET_TYPE_TILE) {
     Animation::move(yText, yTextTrg, astraConfig.selectorYAnimationSpeed, clocker);
 
-    //draw text.
+    //draw m_text.
     //文字不受摄像机的影响
     HAL::setDrawType(1);
-    HAL::drawChinese((systemConfig.screenWeight -
-                      (float) HAL::getFontWidth(menu->childMenu[menu->selectIndex]->title)) / 2.0,
-                     yText + astraConfig.tileTitleHeight,
-                     menu->childMenu[menu->selectIndex]->title);
+    auto &title = menu->childMenu[menu->selectIndex]->title;
+    title.draw((systemConfig.screenWeight - title.getWidth()) / 2.0, yText + title.getHeight());
 
     //draw box.
     //大框需要受摄像机的影响
@@ -134,13 +132,10 @@ void Selector::render(std::vector<float> _camera, Clocker &clocker) {
 
     HAL::drawPixel(x + _camera[0] + w - 1, y + _camera[1] + h - 1);
   } else if (menu->getType() == WIDGET_TYPE_LIST) {
-    //animation(&h, hTrg, astraConfig.selectorAnimationSpeed);
-
     //draw select box.
     //受摄像机的影响
     HAL::setDrawType(2);
-    HAL::drawRBox(x + _camera[0], y + _camera[1], w, h - 1, astraConfig.selectorRadius);
-    //HAL::drawRBox(x, y, w, astraConfig.listLineHeight, astraConfig.selectorRadius);
+    HAL::drawRBox(x + _camera[0], y + _camera[1], w, h, astraConfig.selectorRadius);
     HAL::setDrawType(1);
   }
 }

@@ -51,7 +51,7 @@ struct config {
 
   float tileDottedLineBottomMargin = 18; //虚线下边距(top: 46)
   float tileArrowBottomMargin = 8; //箭头下边距(top: 56)
-  float tileTextBottomMargin = 12; //标题下边距(top: 52)
+  float tileTextBottomMargin = 1; //标题下边距(top: 52)
 
   float tileBarHeight = 2; //磁贴进度条高度
 
@@ -59,7 +59,6 @@ struct config {
   float tileSelectBoxMargin = 3; //选择框边距
   float tileSelectBoxWidth = tileSelectBoxMargin * 2 + tilePicWidth; //选择框宽
   float tileSelectBoxHeight = tileSelectBoxMargin * 2 + tilePicHeight; //选择框高
-  float tileTitleHeight = 8; //磁贴标题高度
 
   float tileBtnMargin = 16; //按钮边距
 

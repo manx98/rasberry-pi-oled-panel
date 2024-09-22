@@ -12,24 +12,28 @@
 namespace astra {
     class Launcher {
     private:
-        Menu *currentMenu;
-        Widget *currentWidget = nullptr;
-        Selector *selector;
-        Camera *camera;
+        static Menu *currentMenu;
+        static Widget *currentWidget;
+        static Selector *selector;
+        static Camera *camera;
     public:
-        void popInfo(std::string _info, uint16_t _time);
+        static void popInfo(std::string _info, uint16_t _time);
 
-        void init(Menu *_rootPage);
+        static void init(Menu *_rootPage);
 
-        bool open();
+        static bool open();
 
-        bool close();
+        static bool close();
 
-        void update();
+        static void update(const std::function<void(Clocker &clocker, key::keyIndex active_key)>& render);
 
-        Camera *getCamera() { return camera; }
+        static void update();
 
-        Selector *getSelector() { return selector; }
+        static key::keyIndex getKey();
+
+        static Camera *getCamera() { return camera; }
+
+        static Selector *getSelector() { return selector; }
     };
 }
 
