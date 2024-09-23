@@ -38,6 +38,7 @@ namespace astra {
         TextBox(float margin, const std::initializer_list<Text> &_texts);
         void setTexts(int _index, const Text &_text);
         void add(Text _text);
+        void remove(int _index);
         void draw(float _x, float _y) const;
         [[nodiscard]] float getWidth() const;
         [[nodiscard]] float getHeight() const;

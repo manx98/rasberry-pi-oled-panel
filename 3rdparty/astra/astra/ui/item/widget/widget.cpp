@@ -158,6 +158,9 @@ namespace astra {
     }
 
     void TextBox::setTexts(int _index, const Text &_text) {
+        if(_index < 0 || _index >= m_texts.size()) {
+            return;
+        }
         auto old = m_texts[_index];
         m_texts[_index] = _text;
         m_h  = m_h - old.getHeight() + _text.getHeight();
@@ -170,6 +173,17 @@ namespace astra {
         {
             m_w = static_cast<float>(std::fmax(item.getWidth(), m_w));
         }
+    }
+
+    void TextBox::remove(int _index) {
+        if(_index < 0 || _index >= m_texts.size()) {
+            return;
+        }
+        auto item = m_texts.erase(m_texts.begin() + _index);
+        if(!m_texts.empty()) {
+            m_h -= item->getHeight() + m_margin;
+        }
+        updateWidth();
     }
 }
 

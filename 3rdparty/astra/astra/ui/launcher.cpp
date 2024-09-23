@@ -63,12 +63,12 @@ namespace astra {
         camera->init(_rootPage->getType());
     }
 
-/**
- * @brief 打开选中的页面
- *
- * @return 是否成功打开
- * @warning 仅可调用一次
- */
+    /**
+     * @brief 打开选中的页面
+     *
+     * @return 是否成功打开
+     * @warning 仅可调用一次
+     */
     bool Launcher::open() {
         auto child = currentMenu->getNextMenu();
         //如果当前页面指向的当前item没有后继 那就返回false
@@ -76,14 +76,14 @@ namespace astra {
             popInfo("unreferenced page!", 800);
             return false;
         }
-        if(!child->onOpen()) {
+        if (!child->onOpen()) {
             return false;
         }
         if (!child->childMenu.empty()) {
 
         } else if (!child->childWidget.empty()) {
             for (auto &item: child->childWidget) {
-                if(!item->onOpen()){
+                if (!item->onOpen()) {
                     break;
                 }
             }
@@ -155,7 +155,7 @@ namespace astra {
         return value;
     }
 
-    void Launcher::update(const std::function<void(Clocker &clocker, key::keyIndex active_key)>& render) {
+    void Launcher::update(const std::function<void(Clocker &clocker, key::keyIndex active_key)> &render) {
         static Clocker render_clocker;
         render_clocker.waitUntil(getUIConfig().perFrameMills);
         render_clocker.next();
