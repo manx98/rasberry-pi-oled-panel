@@ -35,9 +35,7 @@ struct config {
   bool lightMode = false;
 
   float listBarWeight = 5;
-  float listTextHeight = 8;
   float listTextMargin = 4; //文字边距
-  float listLineHeight = 16;
   float selectorRadius = 0.5f;
   float selectorMargin = 4; //选择框与文字左边距
   float selectorTopMargin = 2; //选择框与文字上边距
