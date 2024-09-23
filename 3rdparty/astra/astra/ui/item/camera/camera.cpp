@@ -100,7 +100,6 @@ namespace astra {
     }
 
     void Camera::goToListItemRolling(List *_menu) {
-        static const unsigned char maxItemPerPage = systemConfig.screenHeight / astraConfig.listLineHeight;
         static bool init = false;
 
         //第一次进入的时候初始化 退出页面记住坐标 再次进入就OK了
@@ -108,15 +107,25 @@ namespace astra {
             go(0, 0);
             _menu->initFlag = true;
         }
-
-        if (_menu->selectIndex < _menu->getBoundary()[0]) {
+        auto item = _menu->childMenu[_menu->selectIndex];
+        if (item->position.yTrg < _menu->getBoundary()[0]) {
             //注意这里是go不是move
-            move(0, (_menu->selectIndex - _menu->getBoundary()[0]) * astraConfig.listLineHeight);
-            _menu->refreshBoundary(_menu->selectIndex, _menu->selectIndex + maxItemPerPage - 1);
+            auto start = item->position.yTrg;
+            auto end = systemConfig.screenHeight + start;
+            if(start < 0) {
+                start = 0;
+            }
+            move(0, start - _menu->getBoundary()[0]);
+            _menu->refreshBoundary(start, end);
             return;
-        } else if (_menu->selectIndex > _menu->getBoundary()[1]) {
-            move(0, (_menu->selectIndex - _menu->getBoundary()[1]) * astraConfig.listLineHeight);
-            _menu->refreshBoundary(_menu->selectIndex - maxItemPerPage + 1, _menu->selectIndex);
+        } else if (item->position.yTrg + item->getHeight() > _menu->getBoundary()[1]) {
+            auto end = item->position.yTrg + item->getHeight();
+            move(0, end - _menu->getBoundary()[1]);
+            auto start = end - systemConfig.screenHeight;
+            if(start < 0) {
+                start = 0;
+            }
+            _menu->refreshBoundary(start, end);
             return;
         } else return;
     }

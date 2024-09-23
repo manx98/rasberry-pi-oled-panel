@@ -1,5 +1,6 @@
 #include "astra/ui/item/widget/widget.h"
 
+#include <cmath>
 #include <utility>
 #include "astra/ui/launcher.h"
 
@@ -103,33 +104,6 @@ namespace astra {
         Widget::render(_camera);
     }
 
-    SystemStatus::SystemStatus(std::function<void(SystemStatus *)> update) : m_update(std::move(update)) {}
-
-    bool SystemStatus::onOpen() {
-        updateConfig();
-        bool show = true;
-        for (; show;) {
-            astra::Launcher::update([&](Clocker &render_clocker, key::KEY_INDEX active_key) {
-                m_update(this);
-                auto y = astraConfig.listTextHeight;
-                for (auto &info: std::initializer_list<std::string>{
-                        ip,
-                        cpu_info,
-                        mem_info,
-                        disk_info,
-                        speed_info
-                }) {
-                    HAL::drawEnglish(0, y, info);
-                    y += astraConfig.listTextHeight + astraConfig.listTextMargin;
-                }
-                if (active_key == key::KEY_CANCEL) {
-                    show = false;
-                }
-            });
-        }
-        return true;
-    }
-
     Text::Text(std::string _text, const unsigned char *_font) : m_text(std::move(_text)), m_font(_font) {
         HAL::setFont(m_font);
         m_w = HAL::getFontWidth(m_text);
@@ -149,17 +123,20 @@ namespace astra {
         HAL::drawChinese(_x, _y, m_text);
     }
 
-    TextBox::TextBox(const std::initializer_list<Text> &_texts): m_texts(_texts), m_h(0), m_w(0) {
+    TextBox::TextBox(float margin, const std::initializer_list<Text> &_texts): m_margin(margin), m_texts(_texts), m_h(0), m_w(0) {
         for (auto &text: m_texts) {
-            m_h += text.getHeight();
+            m_h += text.getHeight() + m_margin;
             m_w = m_w < text.getWidth() ? text.getWidth() : m_w;
         }
+        m_h -= margin;
     }
     void TextBox::draw(float _x, float _y) const {
         float y = _y;
-        for (auto &text: m_texts) {
-            text.draw(_x, y);
-            y += text.getHeight();
+        auto it = m_texts.end();
+        while (it != m_texts.begin()) {
+            --it;
+            it->draw(_x, y);
+            y -= it->getHeight() + m_margin;
         }
     }
 
@@ -172,13 +149,27 @@ namespace astra {
     }
 
     void TextBox::add(Text _text) {
+        if(!m_texts.empty()) {
+            m_h += m_margin;
+        }
         m_texts.emplace_back(std::move(_text));
         m_h += _text.getHeight();
         m_w = m_w < _text.getWidth() ? _text.getWidth() : m_w;
     }
 
-    TextBox::TextBox(const Text &_text): m_h(_text.getHeight()), m_w(_text.getWidth()) {
-        m_texts.emplace_back(_text);
+    void TextBox::setTexts(int _index, const Text &_text) {
+        auto old = m_texts[_index];
+        m_texts[_index] = _text;
+        m_h  = m_h - old.getHeight() + _text.getHeight();
+        updateWidth();
+    }
+
+    void TextBox::updateWidth() {
+        m_w = 0;
+        for (const auto &item: m_texts)
+        {
+            m_w = static_cast<float>(std::fmax(item.getWidth(), m_w));
+        }
     }
 }
 

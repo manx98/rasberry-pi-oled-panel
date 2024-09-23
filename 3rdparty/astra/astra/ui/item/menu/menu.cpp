@@ -68,7 +68,6 @@ namespace astra {
     void List::childPosInit(const std::vector<float> &_camera) {
         float top = 0;
         for (auto _iter: childMenu) {
-            //TODO 实现动态列表高度
             _iter->position.x = astraConfig.listTextMargin;
             _iter->position.xTrg = astraConfig.listTextMargin;
             _iter->position.yTrg = top;
@@ -196,11 +195,11 @@ namespace astra {
     }
 
     float List::getWidth() {
-        return 0;
+        return title.getWidth() + astraConfig.listTextMargin;
     }
 
     float List::getHeight() {
-        return 0;
+        return title.getHeight() + astraConfig.listTextMargin;
     }
 
     void Tile::childPosInit(const std::vector<float> &_camera) {

@@ -132,12 +132,11 @@ namespace astra {
         List(const TextBox &_title, const std::vector<unsigned char> &_pic, Event *event);
 
     public:
-        std::vector<unsigned char> boundary = {0, static_cast<unsigned char>(
-                systemConfig.screenHeight / astraConfig.listLineHeight - 1)};
+        std::vector<float> boundary = {0, float(systemConfig.screenHeight)};
 
-        [[nodiscard]] std::vector<unsigned char> getBoundary() const { return boundary; }
+        [[nodiscard]] std::vector<float> getBoundary() const { return boundary; }
 
-        void refreshBoundary(unsigned char _l, unsigned char _r) { boundary = {_l, _r}; }
+        void refreshBoundary(float _l, float _r) { boundary = {_l, _r}; }
 
         bool onOpen() override;
 

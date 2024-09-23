@@ -32,9 +32,11 @@ namespace astra {
     private:
         std::vector<Text> m_texts;
         float m_w, m_h;
+        float m_margin{0};
+        void updateWidth();
     public:
-        explicit TextBox(const Text &_text);
-        TextBox(const std::initializer_list<Text> &_texts);
+        TextBox(float margin, const std::initializer_list<Text> &_texts);
+        void setTexts(int _index, const Text &_text);
         void add(Text _text);
         void draw(float _x, float _y) const;
         [[nodiscard]] float getWidth() const;
@@ -141,19 +143,6 @@ namespace astra {
 
     public:
         void render(const std::vector<float> &_camera) override;
-    };
-
-    class SystemStatus : public Widget {
-    private:
-        std::function<void(SystemStatus*)> m_update;
-        std::string ip{"IP:"};
-        std::string speed_info{"↑0B/s ↓0B/s"};
-        std::string mem_info{"0B / 0B"};
-        std::string disk_info{"Disk: 0B / 0B"};
-        std::string cpu_info{"CPU: 0% 0℃"};
-    public:
-        explicit SystemStatus(std::function<void(SystemStatus*)> update);
-        bool onOpen() override;
     };
 }
 
