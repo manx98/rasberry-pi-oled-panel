@@ -155,17 +155,17 @@ namespace astra {
         return value;
     }
 
-    void Launcher::update(const std::function<void(Clocker &clocker, key::keyIndex active_key)> &render) {
+    void Launcher::update(bool clear, const std::function<void(Clocker &clocker, key::keyIndex active_key)> &render) {
         static Clocker render_clocker;
         render_clocker.waitUntil(getUIConfig().perFrameMills);
         render_clocker.next();
-        HAL::canvasClear();
+        if (clear) HAL::canvasClear();
         render(render_clocker, getKey());
         HAL::canvasUpdate();
     }
 
     void Launcher::update() {
-        update([&](Clocker &render_clocker, key::keyIndex active_key) {
+        update(true, [&](Clocker &render_clocker, key::keyIndex active_key) {
             currentMenu->render(camera->getPosition(), render_clocker);
             if (currentWidget != nullptr) currentWidget->render(camera->getPosition());
             selector->render(camera->getPosition(), render_clocker);
@@ -190,5 +190,42 @@ namespace astra {
                     break;
             }
         });
+    }
+
+    void Launcher::progress(float width, TextBox *text, float &percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback) {
+        float textHeight = 0;
+        if(text) {
+            textHeight = text->getHeight();
+        }
+        auto progressInnerPadding = getUIConfig().progressInnerPadding;
+        auto progressHeight = getUIConfig().progressHeight;
+        auto progressBoxHeight = textHeight + progressHeight + progressInnerPadding*2 + 2 * 4;
+        auto progressBoxY= (HAL::getSystemConfig().screenHeight - progressBoxHeight) / 2;
+        auto progressBoxWidth = width + progressInnerPadding*2 + 2 * 4;
+        auto progressBoxX = (HAL::getSystemConfig().screenWeight - progressBoxWidth) / 2;
+        for(bool render_loop=true; render_loop; ) {
+            update(false, [&](Clocker &render_clocker, key::keyIndex active_key){
+                if(!render_callback(render_clocker, active_key)) {
+                    render_loop = false;
+                    return;
+                }
+                //绘制消息框
+                HAL::setDrawType(0);
+                HAL::drawRBox(progressBoxX, progressBoxY, progressBoxWidth, progressBoxHeight, getUIConfig().popRadius);
+                HAL::setDrawType(1);  //反色显示
+                HAL::drawRFrame(progressBoxX + 1, progressBoxY + 1, progressBoxWidth - 2, progressBoxHeight - 2, getUIConfig().popRadius);  //绘制一个圆角矩形
+                //绘制进度条框
+                HAL::setDrawType(0);
+                HAL::drawRBox(progressBoxX + progressInnerPadding + 2, progressBoxY + progressInnerPadding + 2, width + 4, progressHeight + 4, getUIConfig().popRadius);
+                HAL::setDrawType(1);  //反色显示
+                HAL::drawRFrame(progressBoxX + progressInnerPadding + 3, progressBoxY + progressInnerPadding + 3, width + 2, progressHeight + 2, getUIConfig().popRadius);  //绘制一个圆角矩形
+
+                auto filledWidth = width * percentage / 100;
+                HAL::drawBox(progressBoxX + progressInnerPadding + 4, progressBoxY + progressInnerPadding + 4, filledWidth, progressHeight);
+                if(text) {
+                    text->draw(progressBoxX + progressInnerPadding + 4, progressBoxY + text->getHeight() + progressInnerPadding*2 + 6);
+                }
+            });
+        }
     }
 }

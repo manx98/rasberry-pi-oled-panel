@@ -19,13 +19,15 @@ namespace astra {
     public:
         static void popInfo(std::string _info, uint16_t _time);
 
+        static void progress(float width, TextBox *text, float &percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback);
+
         static void init(Menu *_rootPage);
 
         static bool open();
 
         static bool close();
 
-        static void update(const std::function<void(Clocker &clocker, key::keyIndex active_key)>& render);
+        static void update(bool clear, const std::function<void(Clocker &clocker, key::keyIndex active_key)>& render);
 
         static void update();
 

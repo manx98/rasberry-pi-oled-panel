@@ -83,6 +83,8 @@ struct config {
   float checkBoxTopMargin = 4; //与选项上边缘的距离
   float checkBoxRightMargin = 10; //与屏幕右边缘的距离
   float checkBoxRadius = 1;
+  float progressInnerPadding = 1; // 进度条内距
+  float progressHeight = 4; // 进度条高度
 };
 
 static config &getUIConfig() {

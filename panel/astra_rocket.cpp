@@ -13,15 +13,46 @@
 bool test = false;
 unsigned char testIndex = 0;
 unsigned char testSlider = 60;
+
+class ListEvent: public astra::List::Event {
+public:
+    bool beforeOpen(astra::Menu *current) override {
+        astra::TextBox title(0, {{"test", astra::getUIConfig().mainFont}});
+        auto screenWeight = HAL::getSystemConfig().screenWeight;
+        float percentage = 0.0f;
+        astra::Launcher::progress(screenWeight - 20, &title, percentage , [&](astra::Clocker& clocker, key::keyIndex key)->bool{
+            if(key == key::KEY_CONFIRM) {
+                return false;
+            } else if(key == key::KEY_NEXT) {
+                percentage += 10.0f;
+            } else if(key == key::KEY_PREV) {
+                percentage -= 10.0f;
+            }
+            if(percentage > 100) {
+                percentage = 100;
+            } else if(percentage < 0) {
+                percentage = 0;
+            }
+            title.setText(0, {std::to_string(percentage) + "%", astra::getUIConfig().mainFont});
+            return true;
+        });
+        return true;
+    }
+
+    bool beforeRender(astra::Menu *current, const std::vector<float> &_camera, astra::Clocker &clocker) override {
+        return true;
+    }
+};
+
 void astraCoreInit(void) {
   HAL::inject(new Sh1106Hal());
 
   HAL::delay(350);
-  astra::drawLogo(5000);
+//  astra::drawLogo(5000);
   auto font = astra::getUIConfig().mainFont;
   auto textMarin = astra::getUIConfig().listTextMargin;
   auto *rootPage = new astra::Tile({textMarin, {{"root", font}}});
-  rootPage->addItem(new astra::List({textMarin, {{"系统状态", font}}}, system_status_icon_30x30));
+  rootPage->addItem(new astra::List({textMarin, {{"系统状态", font}}}, system_status_icon_30x30, new ListEvent()));
   rootPage->addItem(new astra::List({textMarin, {{"WIFI", font}}}, wifi_icon_30x30));
   rootPage->addItem(new astra::List({textMarin, {{"Network", font}}}, network_interface_icon_30x30));
   auto *secondPage = new astra::List({textMarin, {{"设置", font}}}, setting_icon_30x30);

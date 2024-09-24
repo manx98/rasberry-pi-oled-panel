@@ -157,7 +157,7 @@ namespace astra {
         m_w = m_w < _text.getWidth() ? _text.getWidth() : m_w;
     }
 
-    void TextBox::setTexts(int _index, const Text &_text) {
+    void TextBox::setText(int _index, const Text &_text) {
         if(_index < 0 || _index >= m_texts.size()) {
             return;
         }
