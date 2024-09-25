@@ -20,7 +20,7 @@ public:
         astra::TextBox title(0, {{"test", astra::getUIConfig().mainFont}});
         auto screenWeight = HAL::getSystemConfig().screenWeight;
         float percentage = 0.0f;
-        astra::Launcher::progress(screenWeight - 20, &title, percentage , [&](astra::Clocker& clocker, key::keyIndex key)->bool{
+        astra::Launcher::progress(screenWeight - 20, &title, nullptr , [&](astra::Clocker& clocker, key::keyIndex key)->bool{
             if(key == key::KEY_CONFIRM) {
                 return false;
             } else if(key == key::KEY_NEXT) {

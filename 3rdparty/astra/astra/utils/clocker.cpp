@@ -20,7 +20,11 @@ namespace astra {
 
     void Clocker::next() {
         auto current = HAL::millis();
-        last_duration_ = duration_ + current - last_time_;
+        if(last_time_ != -1) {
+            last_duration_ = duration_ + current - last_time_;
+        } else {
+            last_duration_ = duration_;
+        }
         last_time_ = current;
         duration_ = 0;
     }

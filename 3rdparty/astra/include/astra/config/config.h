@@ -85,6 +85,7 @@ struct config {
   float checkBoxRadius = 1;
   float progressInnerPadding = 1; // 进度条内距
   float progressHeight = 4; // 进度条高度
+  float progressInfAnimationSpeed = 25; //无限滚动条速度
 };
 
 static config &getUIConfig() {

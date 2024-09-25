@@ -11,9 +11,9 @@ namespace astra {
     Selector *Launcher::selector = {};
     Camera *Launcher::camera = {};
 
-    void Launcher::popInfo(std::string _info, uint16_t _time) {
-        float wPop = HAL::getFontWidth(_info) + 2 * getUIConfig().popMargin;  //宽度
-        float hPop = HAL::getFontHeight() + 2 * getUIConfig().popMargin;  //高度
+    void Launcher::popInfo(const TextBox &info, uint16_t _time) {
+        float wPop = info.getWidth() + 2 * getUIConfig().popMargin;  //宽度
+        float hPop = info.getHeight() + 2 * getUIConfig().popMargin;  //高度
         float yPop = 0 - hPop - 8; //从屏幕上方滑入
         float yPopTrg = (HAL::getSystemConfig().screenHeight - hPop) / 3;  //目标位置 中间偏上
         float xPop = (HAL::getSystemConfig().screenWeight - wPop) / 2;  //居中
@@ -33,10 +33,7 @@ namespace astra {
             HAL::drawRBox(xPop - 4, yPop - 4, wPop + 8, hPop + 8, getUIConfig().popRadius + 2);
             HAL::setDrawType(1);  //反色显示
             HAL::drawRFrame(xPop - 1, yPop - 1, wPop + 2, hPop + 2, getUIConfig().popRadius);  //绘制一个圆角矩形
-            HAL::drawEnglish(xPop + getUIConfig().popMargin,
-                             yPop + getUIConfig().popMargin + HAL::getFontHeight(),
-                             _info);  //绘制文字
-
+            info.draw(xPop + getUIConfig().popMargin,yPop + getUIConfig().popMargin + info.getHeight()); //绘制文字
             Animation::move(yPop, yPopTrg, getUIConfig().popSpeed, render_clocker);  //动画
             HAL::canvasUpdate();
 
@@ -73,7 +70,7 @@ namespace astra {
         auto child = currentMenu->getNextMenu();
         //如果当前页面指向的当前item没有后继 那就返回false
         if (child == nullptr) {
-            popInfo("unreferenced page!", 800);
+            popInfo({0, {{"unreferenced page!", getUIConfig().mainFont}}}, 800);
             return false;
         }
         if (!child->onOpen()) {
@@ -89,7 +86,7 @@ namespace astra {
             }
             return false;
         } else {
-            popInfo("empty page!", 800);
+            popInfo({0, {{"empty page!", getUIConfig().mainFont}}}, 800);
             return false;
         }
 
@@ -113,11 +110,11 @@ namespace astra {
      */
     bool Launcher::close() {
         if (currentMenu->getPreview() == nullptr) {
-            popInfo("unreferenced page!", 600);
+            popInfo({0, {{"unreferenced page!", getUIConfig().mainFont}}}, 600);
             return false;
         }
         if (currentMenu->getPreview()->getItemNum() == 0) {
-            popInfo("empty page!", 600);
+            popInfo({0, {{"empty page!", getUIConfig().mainFont}}}, 600);
             return false;
         }
 
@@ -192,23 +189,28 @@ namespace astra {
         });
     }
 
-    void Launcher::progress(float width, TextBox *text, float &percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback) {
-        float textHeight = 0;
-        if(text) {
-            textHeight = text->getHeight();
-        }
-        auto progressInnerPadding = getUIConfig().progressInnerPadding;
-        auto progressHeight = getUIConfig().progressHeight;
-        auto progressBoxHeight = textHeight + progressHeight + progressInnerPadding*2 + 2 * 4;
-        auto progressBoxY= (HAL::getSystemConfig().screenHeight - progressBoxHeight) / 2;
-        auto progressBoxWidth = width + progressInnerPadding*2 + 2 * 4;
-        auto progressBoxX = (HAL::getSystemConfig().screenWeight - progressBoxWidth) / 2;
+    void Launcher::progress(float width, TextBox *text, float *percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback) {
+        float progressOffset = 0;
+        auto sideBarAnimationSpeed = getUIConfig().progressInfAnimationSpeed;
         for(bool render_loop=true; render_loop; ) {
             update(false, [&](Clocker &render_clocker, key::keyIndex active_key){
+                render_clocker.pause();
                 if(!render_callback(render_clocker, active_key)) {
+                    render_clocker.start();
                     render_loop = false;
                     return;
                 }
+                render_clocker.start();
+                float textHeight = 0;
+                if(text) {
+                    textHeight = text->getHeight();
+                }
+                auto progressInnerPadding = getUIConfig().progressInnerPadding;
+                auto progressHeight = getUIConfig().progressHeight;
+                auto progressBoxHeight = textHeight + progressHeight + progressInnerPadding*2 + 2 * 4;
+                auto progressBoxY= (HAL::getSystemConfig().screenHeight - progressBoxHeight) / 2;
+                auto progressBoxWidth = width + progressInnerPadding*2 + 2 * 4;
+                auto progressBoxX = (HAL::getSystemConfig().screenWeight - progressBoxWidth) / 2;
                 //绘制消息框
                 HAL::setDrawType(0);
                 HAL::drawRBox(progressBoxX, progressBoxY, progressBoxWidth, progressBoxHeight, getUIConfig().popRadius);
@@ -220,8 +222,25 @@ namespace astra {
                 HAL::setDrawType(1);  //反色显示
                 HAL::drawRFrame(progressBoxX + progressInnerPadding + 3, progressBoxY + progressInnerPadding + 3, width + 2, progressHeight + 2, getUIConfig().popRadius);  //绘制一个圆角矩形
 
-                auto filledWidth = width * percentage / 100;
-                HAL::drawBox(progressBoxX + progressInnerPadding + 4, progressBoxY + progressInnerPadding + 4, filledWidth, progressHeight);
+                if(percentage){
+                    //绘制固定进度条
+                    auto filledWidth = width * (*percentage) / 100;
+                    HAL::drawBox(progressBoxX + progressInnerPadding + 4, progressBoxY + progressInnerPadding + 4, filledWidth, progressHeight);
+                } else {
+                    //绘制无限滚动条
+                    auto filledWidth = width / 4;
+                    HAL::drawBox(progressOffset + progressBoxX + progressInnerPadding + 4, progressBoxY + progressInnerPadding + 4, filledWidth, progressHeight);
+                    progressOffset += render_clocker.lastDuration() / 1000.0f * sideBarAnimationSpeed;
+                    if(filledWidth + progressOffset >= width){
+                        //向右移动
+                        progressOffset = width - filledWidth;
+                        sideBarAnimationSpeed *= -1;
+                    } else if(progressOffset<=0) {
+                        //向左移动
+                        progressOffset = 0;
+                        sideBarAnimationSpeed *= -1;
+                    }
+                }
                 if(text) {
                     text->draw(progressBoxX + progressInnerPadding + 4, progressBoxY + text->getHeight() + progressInnerPadding*2 + 6);
                 }
