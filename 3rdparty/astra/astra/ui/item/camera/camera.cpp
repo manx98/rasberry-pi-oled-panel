@@ -107,7 +107,7 @@ namespace astra {
             go(0, 0);
             _menu->initFlag = true;
         }
-        auto item = _menu->childMenu[_menu->selectIndex];
+        auto item = _menu->getSelected();
         if (item->position.yTrg < _menu->getBoundary()[0]) {
             //注意这里是go不是move
             auto start = item->position.yTrg;

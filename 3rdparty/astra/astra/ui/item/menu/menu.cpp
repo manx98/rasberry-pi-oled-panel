@@ -65,6 +65,17 @@ namespace astra {
         } else return false;
     }
 
+    void Menu::clear() {
+        for (const auto &item: childMenu) {
+            delete item;
+        }
+        childMenu.clear();
+        for (const auto &item: childWidget) {
+            delete item;
+        }
+        childWidget.clear();
+    }
+
     void List::childPosInit(const std::vector<float> &_camera) {
         float top = 0;
         for (auto _iter: childMenu) {
@@ -98,7 +109,7 @@ namespace astra {
         positionForeground.xBar = systemConfig.screenWeight;
     }
 
-    List::List(const TextBox &_title): Menu(_title) {
+    List::List(const TextBox &_title) : Menu(_title) {
         this->pic = generateDefaultPic();
 
         this->selectIndex = 0;
@@ -111,7 +122,7 @@ namespace astra {
         this->positionForeground = {};
     }
 
-    List::List(const TextBox &_title, const std::vector<unsigned char> &_pic): Menu(_title) {
+    List::List(const TextBox &_title, const std::vector<unsigned char> &_pic) : Menu(_title) {
         this->pic = _pic;
 
         this->selectIndex = 0;
@@ -151,7 +162,7 @@ namespace astra {
                 }
             }
             total_height += _iter->title.getHeight();
-            if (index <= selectIndex){
+            if (index <= selectIndex) {
                 select_height += _iter->title.getHeight();
             }
             //绘制文字
@@ -194,12 +205,38 @@ namespace astra {
         }
     }
 
+    Menu* List::getSelected(){
+        if(childMenu.empty()) {
+            return nullptr;
+        }
+        if(selectIndex >= childMenu.size()) {
+            selectIndex = 0;
+        }
+        return childMenu[selectIndex];
+    }
+
     float List::getWidth() {
         return title.getWidth() + astraConfig.listTextMargin;
     }
 
     float List::getHeight() {
         return title.getHeight() + astraConfig.listTextMargin;
+    }
+
+    List::List(const TextBox &_title, Menu::Event *event) : Menu(_title), m_event(event) {
+        this->pic = generateDefaultPic();
+        this->selectIndex = 0;
+
+        this->parent = nullptr;
+        this->childMenu.clear();
+        this->childWidget.clear();
+
+        this->position = {};
+        this->positionForeground = {};
+    }
+
+    List::~List() {
+        delete m_event;
     }
 
     void Tile::childPosInit(const std::vector<float> &_camera) {
@@ -243,7 +280,7 @@ namespace astra {
         positionForeground.yBar = 0 - astraConfig.tileBarHeight; //注意这里是坐标从屏幕外滑入 而不是height从0变大
     }
 
-    Tile::Tile(const TextBox &_title): Menu(_title) {
+    Tile::Tile(const TextBox &_title) : Menu(_title) {
         this->pic = generateDefaultPic();
 
         this->selectIndex = 0;
@@ -256,7 +293,7 @@ namespace astra {
         this->positionForeground = {};
     }
 
-    Tile::Tile(const TextBox &_title, const std::vector<unsigned char> &_pic): Menu(_title) {
+    Tile::Tile(const TextBox &_title, const std::vector<unsigned char> &_pic) : Menu(_title) {
         this->pic = _pic;
 
         this->selectIndex = 0;

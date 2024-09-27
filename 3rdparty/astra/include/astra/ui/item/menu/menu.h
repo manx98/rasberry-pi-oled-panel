@@ -18,12 +18,16 @@ namespace astra {
 
     class Menu : public Item {
     public:
+        virtual ~Menu() = default;
+
         explicit Menu(TextBox _title) : title(std::move(_title)) {};
 
         [[nodiscard]] virtual WidgetType getType() const { return WIDGET_TYPE_BASE; }
 
         class Event {
         public:
+            virtual ~Event() = default;
+
             virtual bool beforeOpen(Menu *current) = 0;
 
             virtual bool beforeRender(Menu *current, const std::vector<float> &_camera, Clocker &clocker) = 0;
@@ -101,6 +105,8 @@ namespace astra {
         bool addItem(Menu *_page);
 
         bool addItem(Menu *_page, Widget *_anyWidget); //新建一个带有控件的列表项
+
+        void clear();
     };
 
     class List : public Menu {
@@ -127,9 +133,13 @@ namespace astra {
 
         explicit List(const TextBox &_title);
 
+        List(const TextBox &_title, Event *event);
+
         List(const TextBox &_title, const std::vector<unsigned char> &_pic);
 
         List(const TextBox &_title, const std::vector<unsigned char> &_pic, Event *event);
+
+        ~List() override;
 
     public:
         std::vector<float> boundary = {0, float(systemConfig.screenHeight)};
@@ -140,6 +150,7 @@ namespace astra {
 
         bool onOpen() override;
 
+        Menu* getSelected();
     public:
         void render(const std::vector<float> &_camera, Clocker &clocker) override;
 
@@ -171,8 +182,11 @@ namespace astra {
 
         Tile(const TextBox &_title, const std::vector<unsigned char> &_pic);
 
+        ~Tile() override = default;
+
     public:
         void render(const std::vector<float> &_camera, Clocker &clocker) override;
+
         float getWidth() override;
 
         float getHeight() override;

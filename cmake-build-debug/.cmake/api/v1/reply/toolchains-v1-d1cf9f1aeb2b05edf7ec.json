@@ -1,0 +1,112 @@
+{
+	"kind" : "toolchains",
+	"toolchains" : 
+	[
+		{
+			"compiler" : 
+			{
+				"id" : "GNU",
+				"implicit" : 
+				{
+					"includeDirectories" : 
+					[
+						"/usr/lib/gcc-cross/aarch64-linux-gnu/12/include",
+						"/usr/aarch64-linux-gnu/include",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/include/aarch64-linux-gnu",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/include"
+					],
+					"linkDirectories" : 
+					[
+						"/usr/lib/gcc-cross/aarch64-linux-gnu/12",
+						"/usr/aarch64-linux-gnu/lib",
+						"/home/wenyiyu/aarch64-linux-gnu/lib/aarch64-linux-gnu",
+						"/home/wenyiyu/aarch64-linux-gnu/lib",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/lib/aarch64-linux-gnu",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/lib"
+					],
+					"linkFrameworkDirectories" : [],
+					"linkLibraries" : 
+					[
+						"gcc",
+						"gcc_s",
+						"c",
+						"gcc",
+						"gcc_s"
+					]
+				},
+				"path" : "/usr/bin/aarch64-linux-gnu-gcc-12",
+				"version" : "12.3.0"
+			},
+			"language" : "C",
+			"sourceFileExtensions" : 
+			[
+				"c",
+				"m"
+			]
+		},
+		{
+			"compiler" : 
+			{
+				"id" : "GNU",
+				"implicit" : 
+				{
+					"includeDirectories" : 
+					[
+						"/usr/aarch64-linux-gnu/include/c++/12",
+						"/usr/aarch64-linux-gnu/include/c++/12/aarch64-linux-gnu",
+						"/usr/aarch64-linux-gnu/include/c++/12/backward",
+						"/usr/lib/gcc-cross/aarch64-linux-gnu/12/include",
+						"/usr/aarch64-linux-gnu/include",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/include/aarch64-linux-gnu",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/include"
+					],
+					"linkDirectories" : 
+					[
+						"/usr/lib/gcc-cross/aarch64-linux-gnu/12",
+						"/usr/aarch64-linux-gnu/lib",
+						"/home/wenyiyu/aarch64-linux-gnu/lib/aarch64-linux-gnu",
+						"/home/wenyiyu/aarch64-linux-gnu/lib",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/lib/aarch64-linux-gnu",
+						"/home/wenyiyu/aarch64-linux-gnu/usr/lib"
+					],
+					"linkFrameworkDirectories" : [],
+					"linkLibraries" : 
+					[
+						"stdc++",
+						"m",
+						"gcc_s",
+						"gcc",
+						"c",
+						"gcc_s",
+						"gcc"
+					]
+				},
+				"path" : "/usr/bin/aarch64-linux-gnu-g++-12",
+				"version" : "12.3.0"
+			},
+			"language" : "CXX",
+			"sourceFileExtensions" : 
+			[
+				"C",
+				"M",
+				"c++",
+				"cc",
+				"cpp",
+				"cxx",
+				"mm",
+				"mpp",
+				"CPP",
+				"ixx",
+				"cppm",
+				"ccm",
+				"cxxm",
+				"c++m"
+			]
+		}
+	],
+	"version" : 
+	{
+		"major" : 1,
+		"minor" : 0
+	}
+}

@@ -1,0 +1,14 @@
+{
+	"backtraceGraph" : 
+	{
+		"commands" : [],
+		"files" : [],
+		"nodes" : []
+	},
+	"installers" : [],
+	"paths" : 
+	{
+		"build" : "3rdparty/u8g2-arm-linux/examples",
+		"source" : "3rdparty/u8g2-arm-linux/examples"
+	}
+}
