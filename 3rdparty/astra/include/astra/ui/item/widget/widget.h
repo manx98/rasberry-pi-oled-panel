@@ -40,6 +40,7 @@ namespace astra {
         void add(Text _text);
         void remove(int _index);
         void draw(float _x, float _y) const;
+        void clear();
         [[nodiscard]] float getWidth() const;
         [[nodiscard]] float getHeight() const;
     };

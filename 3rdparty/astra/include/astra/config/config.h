@@ -31,14 +31,12 @@ struct config {
 
   bool menuLoop = true;
 
-  bool backgroundBlur = true;
   bool lightMode = false;
 
   float listBarWeight = 5;
   float listTextMargin = 4; //文字边距
   float selectorRadius = 0.5f;
   float selectorMargin = 4; //选择框与文字左边距
-  float selectorTopMargin = 2; //选择框与文字上边距
 
   float tilePicWidth = 30;
   float tilePicHeight = 30;
@@ -49,7 +47,7 @@ struct config {
 
   float tileDottedLineBottomMargin = 18; //虚线下边距(top: 46)
   float tileArrowBottomMargin = 8; //箭头下边距(top: 56)
-  float tileTextBottomMargin = 1; //标题下边距(top: 52)
+  float tileTextBottomMargin = 4; //标题下边距(top: 52)
 
   float tileBarHeight = 2; //磁贴进度条高度
 
@@ -69,14 +67,9 @@ struct config {
   float logoCopyRightHeight = 8; //logo文字高度
   unsigned char logoStarNum = 16; //logo星星数量
 
-  const unsigned char *logoTitleFont = u8g2_font_Cascadia;
-  const unsigned char *logoCopyRightFont = u8g2_font_myfont;
-  const unsigned char *mainFont = u8g2_font_myfont;
-
-  //如果未使用u8g2库 请自行修改这里
-  //const unsigned char *logoTitleFont = u8g2_font_Cascadia;
-  //const unsigned char *logoCopyRightFont = u8g2_font_myfont;
-  //const unsigned char *mainFont = u8g2_font_myfont;
+  const unsigned char *logoTitleFont = u8g2_font_open_iconic_arrow_1x_t;
+  const unsigned char *logoCopyRightFont = u8g2_font_boutique_bitmap_7x7_t_gb2312;
+  const unsigned char *mainFont = u8g2_font_boutique_bitmap_9x9_t_gb2312 ;
 
   float checkBoxWidth = 8;
   float checkBoxHeight = 8;

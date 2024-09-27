@@ -185,5 +185,11 @@ namespace astra {
         }
         updateWidth();
     }
+
+    void TextBox::clear() {
+        m_texts.clear();
+        m_w = 0;
+        m_h = 0;
+    }
 }
 

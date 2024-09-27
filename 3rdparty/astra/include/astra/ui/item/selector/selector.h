@@ -18,8 +18,8 @@ public:
   float y, yTrg;
 
   /*LIST*/
-  float w, wTrg;
-  float h, hTrg;
+  float w;
+  float h;
   /*LIST*/
 
   /*TILE*/
@@ -33,6 +33,8 @@ public:
   std::vector<float> getPosition();
   void setPosition();
 
+  float hTrg();
+  float wTrg();
   void go(unsigned char _index);
   void goNext();
   void goPreview();

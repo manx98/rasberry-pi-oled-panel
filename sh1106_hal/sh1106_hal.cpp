@@ -30,7 +30,7 @@ void Sh1106Hal::init() {
 
     u8g2_SetFontMode(&canvasBuffer, 1); /*字体模式选择*/
     u8g2_SetFontDirection(&canvasBuffer, 0); /*字体方向选择*/
-    u8g2_SetFont(&canvasBuffer, u8g2_font_myfont); /*字库选择*/
+    u8g2_SetFont(&canvasBuffer, astra::getUIConfig().mainFont); /*字库选择*/
     for(int i=0; i< key::KEY_NUM;i++){
         keys_[i] = gpio_new();
         if (gpio_open(keys_[i], GPIO_CHIP_PATH, HAL_GPIO_PINS[i], GPIO_DIR_IN) < 0) {
