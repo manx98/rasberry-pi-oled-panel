@@ -26,6 +26,7 @@
 bool test = false;
 unsigned char testIndex = 0;
 unsigned char testSlider = 60;
+std::string defaultNetworkName[]{"wlan0", "eth0"};
 
 class WifiScanListEvent : public astra::List::Event {
     std::string device_name_;
@@ -113,19 +114,34 @@ public:
         auto infos = RPI::getNetworkInfos();
         std::string ip;
         std::string name;
-        for (const auto &item: infos) {
-            auto &info = item.second;
-            if (info.name == "lo") {
-                continue;
+        for (const auto& default_name: defaultNetworkName) {
+            auto it = infos.find(default_name);
+            if (it != infos.end()) {
+                name = default_name;
+                auto info = it->second;
+                if (!info.inet.empty()) {
+                    name = info.name;
+                    ip = info.inet;
+                    break;
+                } else if (!info.inet6.empty()) {
+                    name = info.name;
+                    ip = info.inet6;
+                    break;
+                }
             }
-            if (!info.inet.empty()) {
-                name = info.name;
-                ip = info.inet;
-                break;
-            } else if (!info.inet6.empty()) {
-                name = info.name;
-                ip = info.inet6;
-                break;
+        }
+        if (name.empty()) {
+            for (const auto &item: infos) {
+                auto &info = item.second;
+                if (!info.inet.empty()) {
+                    name = info.name;
+                    ip = info.inet;
+                    break;
+                } else if (!info.inet6.empty()) {
+                    name = info.name;
+                    ip = info.inet6;
+                    break;
+                }
             }
         }
         if (name.empty()) {
@@ -141,12 +157,14 @@ public:
 
     astra::Text getDiskInfo() {
         auto info = RPI::getDiskInfo("/");
-        return {fmt::format("Disk {}/{}", RPI::formatSize(info.total - info.free), RPI::formatSize(info.total)), STATUS_FONT};
+        return {fmt::format("Disk {}/{}", RPI::formatSize(info.total - info.free), RPI::formatSize(info.total)),
+                STATUS_FONT};
     }
 
     astra::Text getMemInfo() {
         auto info = RPI::getMemoryInfo();
-        return {fmt::format("Mem {}/{}", RPI::formatSize(info.total - info.free), RPI::formatSize(info.total)), STATUS_FONT};
+        return {fmt::format("Mem {}/{}", RPI::formatSize(info.total - info.free - info.buffers - info.cached), RPI::formatSize(info.total)),
+                STATUS_FONT};
     }
 
     astra::Text getSpeedInfo() {
@@ -221,6 +239,7 @@ public:
         return false;
     }
 };
+
 void astraCoreInit(void) {
     HAL::inject(new Sh1106Hal());
 
@@ -232,7 +251,8 @@ void astraCoreInit(void) {
     rootPage->addItem(
             new astra::List({textMarin, {{"系统状态", font}}}, system_status_icon_30x30, new SystemStatusListEvent()));
     rootPage->addItem(new astra::List({textMarin, {{"WIFI", font}}}, wifi_icon_30x30, new WifiDeviceEvent()));
-    rootPage->addItem(new astra::List({textMarin, {{"网络接口", font}}}, network_interface_icon_30x30, new InputNumberListEvent()));
+    rootPage->addItem(new astra::List({textMarin, {{"网络接口", font}}}, network_interface_icon_30x30,
+                                      new InputNumberListEvent()));
     auto *secondPage = new astra::List({textMarin, {{"设置", font}}}, setting_icon_30x30);
     rootPage->addItem(secondPage);
 
