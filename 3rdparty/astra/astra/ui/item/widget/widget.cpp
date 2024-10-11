@@ -6,7 +6,7 @@
 
 namespace astra {
 
-    CheckBox::CheckBox(bool default_value, std::function<void(bool)> on_change) : m_on_change(std::move(on_change)) {
+    CheckBox::CheckBox(bool default_value, std::function<void(bool&)> on_change) : m_on_change(std::move(on_change)) {
         value = default_value;
         if (value) isCheck = true;
         else isCheck = false;

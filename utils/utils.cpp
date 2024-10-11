@@ -179,8 +179,10 @@ namespace RPI {
                     close(sockfd);
                     return false;
                 }
+                spdlog::info("Interface [{}] is now down", interface_name);
             } else {
-                // 网卡已经是启用状态，无需再次启用
+                // 网卡已经是关闭状态，无需再次启用
+                spdlog::info("Interface [{}] is already down", interface_name);
             }
         } else {
             if (up) {
@@ -191,8 +193,10 @@ namespace RPI {
                     close(sockfd);
                     return false;
                 }
+                spdlog::info("Interface [{}] is now up", interface_name);
             } else {
-                // 网卡已经是禁用状态，无需再次禁用
+                // 网卡已经是启动状态，无需再次禁用
+                spdlog::info("Interface [{}] is already up", interface_name);
             }
         }
         close(sockfd);

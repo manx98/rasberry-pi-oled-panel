@@ -76,7 +76,7 @@ namespace astra {
 
     class CheckBox : public Widget {
     private:
-        std::function<void(bool)> m_on_change = nullptr;
+        std::function<void(bool&)> m_on_change = nullptr;
     public:
         [[nodiscard]] WidgetType getType() const override { return WIDGET_TYPE_CHECK_BOCK; }
 
@@ -84,7 +84,7 @@ namespace astra {
         bool isCheck;
 
     public:
-        explicit CheckBox(bool default_value, std::function<void(bool)> on_change);  //check box.
+        explicit CheckBox(bool default_value, std::function<void(bool&)> on_change);  //check box.
     public:
         void init() override;
 

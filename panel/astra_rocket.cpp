@@ -114,7 +114,7 @@ public:
         auto infos = RPI::getNetworkInfos();
         std::string ip;
         std::string name;
-        for (const auto& default_name: defaultNetworkName) {
+        for (const auto &default_name: defaultNetworkName) {
             auto it = infos.find(default_name);
             if (it != infos.end()) {
                 name = default_name;
@@ -163,7 +163,8 @@ public:
 
     astra::Text getMemInfo() {
         auto info = RPI::getMemoryInfo();
-        return {fmt::format("Mem {}/{}", RPI::formatSize(info.total - info.free - info.buffers - info.cached), RPI::formatSize(info.total)),
+        return {fmt::format("Mem {}/{}", RPI::formatSize(info.total - info.free - info.buffers - info.cached),
+                            RPI::formatSize(info.total)),
                 STATUS_FONT};
     }
 
@@ -240,6 +241,55 @@ public:
     }
 };
 
+class NetWorkDeviceListEvent : public astra::List::Event {
+public:
+    ~NetWorkDeviceListEvent() override = default;
+
+    void enable_device(const std::string &device, bool &enable) {
+        if (!RPI::setIpLinkUp(device.c_str(), enable)) {
+            enable = !enable;
+            astra::Launcher::popInfo({1, {{enable ? "启用失败!" : "禁用失败!", astra::getUIConfig().mainFont}}}, 600);
+        } else {
+            astra::Launcher::popInfo({1, {{enable ? "已启用" : "已禁用", astra::getUIConfig().mainFont}}}, 600);
+        }
+    }
+
+    bool beforeOpen(astra::Menu *current) override {
+        astra::TextBox title(0, {{"正在加载...", astra::getUIConfig().mainFont}});
+        std::atomic<bool> finished{false};
+        std::thread scan_thread([&]() {
+            auto infos = RPI::getNetworkInfos();
+            current->clear();
+            auto font = astra::getUIConfig().mainFont;
+            for (const auto &item: infos) {
+                astra::TextBox text{1, {{"- " + item.first, font}}};
+                if (!item.second.inet6.empty()) {
+                    text.add({"  " + item.second.inet6, font});
+                }
+                if (!item.second.inet.empty()) {
+                    text.add({"  " + item.second.inet, font});
+                }
+                current->addItem(new astra::List(text),
+                                 new astra::CheckBox(item.second.up, [this, name = item.first](bool &checked) {
+                                     enable_device(name, checked);
+                                 }));
+            }
+            finished = true;
+        });
+        auto screenWeight = HAL::getSystemConfig().screenWeight;
+        astra::Launcher::progress(screenWeight - 20, &title, nullptr,
+                                  [&](astra::Clocker &clocker, key::keyIndex key) -> bool {
+                                      return !finished;
+                                  });
+        scan_thread.join();
+        return true;
+    }
+
+    bool beforeRender(astra::Menu *current, const std::vector<float> &_camera, astra::Clocker &clocker) {
+        return true;
+    }
+};
+
 void astraCoreInit(void) {
     HAL::inject(new Sh1106Hal());
 
@@ -252,11 +302,11 @@ void astraCoreInit(void) {
             new astra::List({textMarin, {{"系统状态", font}}}, system_status_icon_30x30, new SystemStatusListEvent()));
     rootPage->addItem(new astra::List({textMarin, {{"WIFI", font}}}, wifi_icon_30x30, new WifiDeviceEvent()));
     rootPage->addItem(new astra::List({textMarin, {{"网络接口", font}}}, network_interface_icon_30x30,
-                                      new InputNumberListEvent()));
+                                      new NetWorkDeviceListEvent()));
     auto *secondPage = new astra::List({textMarin, {{"设置", font}}}, setting_icon_30x30);
     rootPage->addItem(secondPage);
 
-    secondPage->addItem(new astra::List({textMarin, {{"-测试2", font}}}), new astra::CheckBox(test, [](bool checked) {
+    secondPage->addItem(new astra::List({textMarin, {{"-测试2", font}}}), new astra::CheckBox(test, [](bool &checked) {
         printf("checked --------> %d\n", checked);
     }));
     secondPage->addItem(new astra::List({textMarin, {{"-测试测试测试4", font}}}),
