@@ -7,6 +7,7 @@
 #include <utility>
 #include <vector>
 #include <spdlog/fmt/fmt.h>
+#include <spdlog/spdlog.h>
 #include <u8g2.h>
 #include <thread>
 #include <atomic>
@@ -140,12 +141,12 @@ public:
 
     astra::Text getDiskInfo() {
         auto info = RPI::getDiskInfo("/");
-        return {fmt::format("Disk {}/{}", RPI::formatSize(info.free), RPI::formatSize(info.total)), STATUS_FONT};
+        return {fmt::format("Disk {}/{}", RPI::formatSize(info.total - info.free), RPI::formatSize(info.total)), STATUS_FONT};
     }
 
     astra::Text getMemInfo() {
         auto info = RPI::getMemoryInfo();
-        return {fmt::format("Mem {}/{}", RPI::formatSize(info.free), RPI::formatSize(info.total)), STATUS_FONT};
+        return {fmt::format("Mem {}/{}", RPI::formatSize(info.total - info.free), RPI::formatSize(info.total)), STATUS_FONT};
     }
 
     astra::Text getSpeedInfo() {
@@ -206,6 +207,20 @@ public:
     }
 };
 
+class InputNumberListEvent : public astra::List::Event {
+public:
+    ~InputNumberListEvent() override = default;
+
+    bool beforeOpen(astra::Menu *current) override {
+        auto result = astra::Launcher::numbersChoose(STATUS_FONT);
+        spdlog::info("InputNumberListEvent result: {}", result);
+        return false;
+    }
+
+    bool beforeRender(astra::Menu *current, const std::vector<float> &_camera, astra::Clocker &clocker) override {
+        return false;
+    }
+};
 void astraCoreInit(void) {
     HAL::inject(new Sh1106Hal());
 
@@ -217,7 +232,7 @@ void astraCoreInit(void) {
     rootPage->addItem(
             new astra::List({textMarin, {{"系统状态", font}}}, system_status_icon_30x30, new SystemStatusListEvent()));
     rootPage->addItem(new astra::List({textMarin, {{"WIFI", font}}}, wifi_icon_30x30, new WifiDeviceEvent()));
-    rootPage->addItem(new astra::List({textMarin, {{"网络接口", font}}}, network_interface_icon_30x30));
+    rootPage->addItem(new astra::List({textMarin, {{"网络接口", font}}}, network_interface_icon_30x30, new InputNumberListEvent()));
     auto *secondPage = new astra::List({textMarin, {{"设置", font}}}, setting_icon_30x30);
     rootPage->addItem(secondPage);
 

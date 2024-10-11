@@ -19,7 +19,7 @@ namespace astra {
     public:
         static void popInfo(const TextBox &info, uint16_t _time);
 
-        static void progress(float width, TextBox *text, float *percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback);
+        static void progress(float width, TextBox *text, const float *percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback);
 
         static void init(Menu *_rootPage);
 
@@ -36,6 +36,8 @@ namespace astra {
         static Camera *getCamera() { return camera; }
 
         static Selector *getSelector() { return selector; }
+
+        static std::string numbersChoose(const unsigned char* font);
     };
 }
 
