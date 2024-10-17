@@ -4,13 +4,9 @@
 #include <list>
 #include <string>
 #include <map>
+#include "wifi.h"
 
 namespace RPI {
-    struct WifiInfo {
-        std::string BSS;
-        std::string SSID;
-        float signal;
-    };
 
     struct WifiConnectInfo {
         std::string BSS;
@@ -19,12 +15,6 @@ namespace RPI {
         int64_t TX;
         float signal;
     };
-
-    WifiConnectInfo *getWifiConnectInfo(const std::string &interface_name);
-
-    std::list<WifiInfo> getWifiList(const std::string &interface_name);
-
-    std::list<std::string> getWifiDevices();
 
     bool setIpLinkUp(const char* interface_name, bool up);
 

@@ -26,128 +26,6 @@ namespace RPI {
         return pclose(file);
     }
 
-    WifiConnectInfo *getWifiConnectInfo(const std::string &interface_name) {
-        auto info = new WifiConnectInfo;
-        std::string result;
-        if (exec_cmd("iw dev " + interface_name + " link", result)) {
-            spdlog::error("Failed to get wifi connect info: {}", result);
-            return {};
-        }
-        size_t end_pos;
-        size_t start_pos;
-        start_pos = result.find("SSID: ");
-        if (start_pos == std::string::npos) {
-            goto err;
-        }
-        end_pos = result.find('\n', start_pos);
-        if (end_pos == std::string::npos) {
-            goto err;
-        }
-        info->SSID = result.substr(start_pos + 6, end_pos - start_pos - 6);
-        start_pos = result.find("signal: ");
-        if (start_pos == std::string::npos) {
-            goto err;
-        }
-        end_pos = result.find(" dBm", start_pos);
-        if (end_pos == std::string::npos) {
-            goto err;
-        }
-        info->signal = std::stof(result.substr(start_pos + 7, end_pos - start_pos - 7));
-        start_pos = result.find("RX: ");
-        if (start_pos == std::string::npos) {
-            goto err;
-        }
-        end_pos = result.find(" bytes", start_pos);
-        if (end_pos == std::string::npos) {
-            goto err;
-        }
-        info->RX = std::stoll(result.substr(start_pos + 4, end_pos - start_pos - 4));
-        start_pos = result.find("TX: ");
-        if (start_pos == std::string::npos) {
-            goto err;
-        }
-        end_pos = result.find(" bytes", start_pos);
-        if (end_pos == std::string::npos) {
-            goto err;
-        }
-        info->TX = std::stoll(result.substr(start_pos + 4, end_pos - start_pos - 4));
-        spdlog::info("SSID: {}, signal: {}, RX: {}, TX: {}", info->SSID, info->signal, info->RX, info->TX);
-        return info;
-        err:
-        delete info;
-        return nullptr;
-    }
-
-    std::list<WifiInfo> getWifiList(const std::string &interface_name) {
-        std::string result;
-        if (exec_cmd("iw dev " + interface_name + " scan", result)) {
-            spdlog::error("Failed to get wifi list: {}", result);
-            return {};
-        }
-        std::list<WifiInfo> wifi_info_list;
-        size_t last_pos = 0;
-        while (true) {
-            WifiInfo info;
-            auto pos = result.find("SSID: ", last_pos);
-            if (pos == std::string::npos) {
-                break;
-            }
-            auto bss_pos = result.rfind("BSS ", pos);
-            if (bss_pos == std::string::npos) {
-                break;
-            }
-            auto bss_pos_end = result.find('(', bss_pos);
-            if (bss_pos_end == std::string::npos) {
-                break;
-            }
-            info.BSS = result.substr(bss_pos + 4, bss_pos_end - bss_pos - 4);
-            pos += 6;
-            last_pos = result.find('\n', pos);
-            if (last_pos == std::string::npos) {
-                break;
-            }
-            info.SSID = result.substr(pos, last_pos - pos);
-            pos = result.find("signal: ", last_pos);
-            if (pos == std::string::npos) {
-                break;
-            }
-            pos += 8;
-            last_pos = result.find(" dBm", pos);
-            if (last_pos == std::string::npos) {
-                break;
-            }
-            info.signal = std::stof(result.substr(pos, last_pos - pos));
-            spdlog::info("BSS: {}, SSID: {}, signal: {}", info.BSS, info.SSID, info.signal);
-            wifi_info_list.emplace_back(info);
-        }
-        return wifi_info_list;
-    }
-
-    std::list<std::string> getWifiDevices() {
-        std::string result;
-        if (exec_cmd("iw dev", result)) {
-            spdlog::error("Failed to get wifi devices: {}", result);
-            return {};
-        }
-        std::list<std::string> interface_list;
-        size_t last_pos = 0;
-        while (true) {
-            auto pos = result.find("Interface", last_pos);
-            if (pos == std::string::npos) {
-                break;
-            }
-            pos += 10;
-            last_pos = result.find('\n', pos);
-            if (last_pos == std::string::npos) {
-                break;
-            }
-            auto name = result.substr(pos, last_pos - pos);
-            spdlog::info("Interface: {}", name);
-            interface_list.emplace_back(name);
-        }
-        return interface_list;
-    }
-
     bool setIpLinkUp(const char *interface_name, bool up) {
         struct ifreq ifr{};
         int sockfd;
@@ -359,7 +237,9 @@ namespace RPI {
                &totalSys, &totalIdle);
         fclose(file);
     }
+
     static unsigned long long lastTotalUser, lastTotalUserLow, lastTotalSys, lastTotalIdle;
+
     double getCpuRate() {
         unsigned long long totalUser;
         unsigned long long totalUserLow;
@@ -369,11 +249,10 @@ namespace RPI {
         double percent;
         unsigned long long total;
         if (totalUser < lastTotalUser || totalUserLow < lastTotalUserLow ||
-            totalSys < lastTotalSys || totalIdle < lastTotalIdle){
+            totalSys < lastTotalSys || totalIdle < lastTotalIdle) {
             //Overflow detection. Just skip this value.
             percent = -1.0;
-        }
-        else{
+        } else {
             total = (totalUser - lastTotalUser) + (totalUserLow - lastTotalUserLow) +
                     (totalSys - lastTotalSys);
             percent = total;

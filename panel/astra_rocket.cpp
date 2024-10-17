@@ -16,6 +16,7 @@
 #include "sh1106_hal/sh1106_hal.h"
 #include "icons/app_icons.h"
 #include "utils/utils.h"
+#include "text.h"
 
 #ifndef STATUS_UPDATE_INTERVAL_MILL
 #define STATUS_UPDATE_INTERVAL_MILL 1000
@@ -28,6 +29,11 @@ unsigned char testIndex = 0;
 unsigned char testSlider = 60;
 std::string defaultNetworkName[]{"wlan0", "eth0"};
 
+
+static bool sortWifiInfoStrengthCb(const RPI::WifiInfo &a, const RPI::WifiInfo &b) {
+    return a.strength > b.strength;
+}
+
 class WifiScanListEvent : public astra::List::Event {
     std::string device_name_;
 public:
@@ -36,16 +42,19 @@ public:
     explicit WifiScanListEvent(std::string _device_name) : device_name_(std::move(_device_name)) {}
 
     bool beforeOpen(astra::Menu *current) override {
-        astra::TextBox title(0, {{"正在扫描...", astra::getUIConfig().mainFont}});
+        astra::TextBox title(0, {{SCANNING_TEXT, astra::getUIConfig().mainFont}});
         std::atomic<bool> finished{false};
         std::thread scan_thread([&]() {
             auto infos = RPI::getWifiList(device_name_);
+            infos.sort(sortWifiInfoStrengthCb);
             current->clear();
             auto font = astra::getUIConfig().mainFont;
             for (const auto &item: infos) {
-                current->addItem(new astra::List({1, {{item.BSS, font},
-                                                      {"SSID:" + item.SSID, font},
-                                                      {fmt::format("SIGNAL:{}dBm", item.signal), font}}}));
+                current->addItem(new astra::List({1, {
+                        {item.SSID.empty() ? "--" : item.SSID, font},
+                        {fmt::format("{}({})", RPI::nmc_wifi_strength_bars(item.strength), item.strength),u8g2_font_6x12_t_symbols },
+                        {fmt::format("<{}> {} MHz", nm_utils_wifi_freq_to_channel(item.frequency), item.frequency), u8g2_font_tiny5_te},
+                        {fmt::format("BSS: {}", item.BSS), u8g2_font_tiny5_te}}}));
             }
             finished = true;
         });
@@ -74,15 +83,16 @@ public:
             current->clear();
             auto font = astra::getUIConfig().mainFont;
             for (const auto &item: devices) {
-                auto info = RPI::getWifiConnectInfo(item);
-                current->addItem(new astra::List({1, {{"-Dev: " + item, font}, {" SSID: " + info->SSID, font}}},
-                                                 new WifiScanListEvent(item)));
+                astra::TextBox title = {1, {{"- " + item.iface, font}}};
+                if (!item.SSID.empty()) {
+                    title.add({"  " + item.SSID, font});
+                }
+                current->addItem(new astra::List(title, new WifiScanListEvent(item.iface)));
             }
             finished = true;
         });
-        astra::TextBox title(0, {{"正在加载设备列表...", astra::getUIConfig().mainFont}});
-        auto screenWeight = HAL::getSystemConfig().screenWeight;
-        astra::Launcher::progress(screenWeight - 20, &title, nullptr,
+        astra::TextBox title(0, {{LOADING_DEVICE_TEXT, astra::getUIConfig().mainFont}});
+        astra::Launcher::progress(HAL::getSystemConfig().screenWeight - 20, &title, nullptr,
                                   [&](astra::Clocker &clocker, key::keyIndex key) -> bool {
                                       return !finished;
                                   });
@@ -248,14 +258,16 @@ public:
     void enable_device(const std::string &device, bool &enable) {
         if (!RPI::setIpLinkUp(device.c_str(), enable)) {
             enable = !enable;
-            astra::Launcher::popInfo({1, {{enable ? "启用失败!" : "禁用失败!", astra::getUIConfig().mainFont}}}, 600);
+            astra::Launcher::popInfo(
+                    {1, {{enable ? ENABLE_FAIL_TEXT : DISABLE_FAIL_TEXT, astra::getUIConfig().mainFont}}}, 600);
         } else {
-            astra::Launcher::popInfo({1, {{enable ? "已启用" : "已禁用", astra::getUIConfig().mainFont}}}, 600);
+            astra::Launcher::popInfo(
+                    {1, {{enable ? ENABLE_SUCCESS_TEXT : DISABLE_SUCCESS_TEXT, astra::getUIConfig().mainFont}}}, 600);
         }
     }
 
     bool beforeOpen(astra::Menu *current) override {
-        astra::TextBox title(0, {{"正在加载...", astra::getUIConfig().mainFont}});
+        astra::TextBox title(0, {{LOADING_DATA_TEXT, astra::getUIConfig().mainFont}});
         std::atomic<bool> finished{false};
         std::thread scan_thread([&]() {
             auto infos = RPI::getNetworkInfos();
@@ -299,11 +311,12 @@ void astraCoreInit(void) {
     auto textMarin = astra::getUIConfig().listTextMargin;
     auto *rootPage = new astra::Tile({textMarin, {{"root", font}}});
     rootPage->addItem(
-            new astra::List({textMarin, {{"系统状态", font}}}, system_status_icon_30x30, new SystemStatusListEvent()));
-    rootPage->addItem(new astra::List({textMarin, {{"WIFI", font}}}, wifi_icon_30x30, new WifiDeviceEvent()));
-    rootPage->addItem(new astra::List({textMarin, {{"网络接口", font}}}, network_interface_icon_30x30,
+            new astra::List({textMarin, {{SYSTEM_STATUS_TEXT, font}}}, system_status_icon_30x30,
+                            new SystemStatusListEvent()));
+    rootPage->addItem(new astra::List({textMarin, {{WIFI_STATUS_TEXT, font}}}, wifi_icon_30x30, new WifiDeviceEvent()));
+    rootPage->addItem(new astra::List({textMarin, {{NETWORK_INTERFACE_TEXT, font}}}, network_interface_icon_30x30,
                                       new NetWorkDeviceListEvent()));
-    auto *secondPage = new astra::List({textMarin, {{"设置", font}}}, setting_icon_30x30);
+    auto *secondPage = new astra::List({textMarin, {{SETTING_TEXT, font}}}, setting_icon_30x30);
     rootPage->addItem(secondPage);
 
     secondPage->addItem(new astra::List({textMarin, {{"-测试2", font}}}), new astra::CheckBox(test, [](bool &checked) {

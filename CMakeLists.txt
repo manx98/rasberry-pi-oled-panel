@@ -27,6 +27,21 @@ add_executable(${PROJECT_NAME} panel/main.cpp
         icons/app_icons.h
         utils/utils.cpp
         utils/utils.h
+        panel/text.h
+        utils/wifi.cpp
+        utils/wifi.h
+        utils/nm-shared-utils.c
+        utils/nm-shared-utils.h
 )
 
-target_link_libraries(${PROJECT_NAME} astra u8g2-arm-linux periphery spdlog)
+if(CMAKE_SYSROOT)
+    set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu/pkgconfig")
+endif ()
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBNM REQUIRED libnm)
+
+foreach (LIBNM_INCLUDE_DIR ${LIBNM_INCLUDE_DIRS})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SYSROOT}/${LIBNM_INCLUDE_DIR})
+endforeach ()
+target_link_libraries(${PROJECT_NAME} astra u8g2-arm-linux periphery spdlog ${LIBNM_LIBRARIES})
