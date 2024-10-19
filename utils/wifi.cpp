@@ -4,7 +4,10 @@
 
 #include "wifi.h"
 #include "nm-shared-utils.h"
+#include "nm-utils.h"
 #include <spdlog/spdlog.h>
+
+#include <utility>
 
 namespace RPI {
     struct WifiScanData {
@@ -31,8 +34,8 @@ namespace RPI {
     }
 
     static inline gboolean
-    nm_clear_g_cancellable(GCancellable * *cancellable) {
-        GCancellable * v;
+    nm_clear_g_cancellable(GCancellable **cancellable) {
+        GCancellable *v;
 
         if (cancellable && (v = *cancellable)) {
             *cancellable = nullptr;
@@ -101,20 +104,17 @@ namespace RPI {
     }
 
     static void
-    wifi_last_scan_updated(GObject *gobject, GParamSpec *pspec, gpointer user_data)
-    {
-        wifi_list_finish((WifiScanData*)user_data, FALSE);
+    wifi_last_scan_updated(GObject *gobject, GParamSpec *pspec, gpointer user_data) {
+        wifi_list_finish((WifiScanData *) user_data, FALSE);
     }
 
     static inline gboolean
-    nm_utils_error_is_cancelled(GError *error)
-    {
+    nm_utils_error_is_cancelled(GError *error) {
         return error && error->code == G_IO_ERROR_CANCELLED && error->domain == G_IO_ERROR;
     }
 
     static void
-    wifi_list_rescan_retry_cb(gpointer user_data, GCancellable *cancellable)
-    {
+    wifi_list_rescan_retry_cb(gpointer user_data, GCancellable *cancellable) {
         auto wifi_list_data = (WifiScanData *) user_data;
 
         if (g_cancellable_is_cancelled(cancellable))
@@ -131,12 +131,11 @@ namespace RPI {
     static GQuark my_nm_device_error_quark = g_quark_from_static_string("nm-device-error-quark");
 
     void
-    wifi_list_rescan_cb(GObject *source_object, GAsyncResult *res, gpointer user_data)
-    {
-        NMDeviceWifi         *wifi  = NM_DEVICE_WIFI(source_object);
-        auto wifi_list_data = (WifiScanData *)user_data;
-        gboolean              force_finished;
-        gboolean              done;
+    wifi_list_rescan_cb(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+        NMDeviceWifi *wifi = NM_DEVICE_WIFI(source_object);
+        auto wifi_list_data = (WifiScanData *) user_data;
+        gboolean force_finished;
+        gboolean done;
 
         nm_device_wifi_request_scan_finish(wifi, res, &wifi_list_data->error);
         if (nm_utils_error_is_cancelled(wifi_list_data->error))
@@ -149,7 +148,7 @@ namespace RPI {
                  * If it's unavailable, that usually means that we wait for wpa_supplicant
                  * to start. In that case, also quit (without scan results). */
                 force_finished = TRUE;
-                done           = TRUE;
+                done = TRUE;
             } else {
                 /* This likely means that scanning is already in progress. There's
                  * a good chance we'll get updated results soon; wait for them.
@@ -162,14 +161,14 @@ namespace RPI {
                                            wifi_list_rescan_retry_cb,
                                            wifi_list_data);
                 force_finished = FALSE;
-                done           = FALSE;
+                done = FALSE;
             }
         } else if (wifi_list_data->error) {
             force_finished = TRUE;
-            done           = TRUE;
+            done = TRUE;
         } else {
             force_finished = FALSE;
-            done           = TRUE;
+            done = TRUE;
         }
 
         if (done)
@@ -178,7 +177,7 @@ namespace RPI {
     }
 
     std::list<WifiInfo> getWifiList(const std::string &interface_name) {
-        GError * error = nullptr;
+        GError *error = nullptr;
         // 创建 NetworkManager 客户端
         NMClient *client = nm_client_new(nullptr, &error);
         if (error) {
@@ -213,17 +212,17 @@ namespace RPI {
                                                  "notify::" NM_DEVICE_WIFI_LAST_SCAN,
                                                  G_CALLBACK(wifi_last_scan_updated),
                                                  &data),
-            nm_device_wifi_request_scan_async(data.wifi, nullptr, on_wifi_scan_done, &data);
+                    nm_device_wifi_request_scan_async(data.wifi, nullptr, on_wifi_scan_done, &data);
             data.scan_cancellable = g_cancellable_new(),
-            nm_device_wifi_request_scan_async(data.wifi,
-                                              data.scan_cancellable,
-                                              wifi_list_rescan_cb,
-                                              &data);
+                    nm_device_wifi_request_scan_async(data.wifi,
+                                                      data.scan_cancellable,
+                                                      wifi_list_rescan_cb,
+                                                      &data);
         }
         g_main_loop_run(data.loop);
         g_main_loop_unref(data.loop);
         g_object_unref(client);
-        if(data.error) {
+        if (data.error) {
             spdlog::error("Error getting wifi list: {}", data.error->message);
             g_error_free(data.error);
             return {};
@@ -232,7 +231,7 @@ namespace RPI {
     }
 
     std::list<NetWorkDeviceInfo> getWifiDevices() {
-        GError * err = nullptr;
+        GError *err = nullptr;
         auto client = nm_client_new(nullptr, &err);
         if (!client) {
             spdlog::warn("Failed to create NMClient: {}", err->message);
@@ -240,7 +239,7 @@ namespace RPI {
             return {};
         }
         // 获取所有设备
-        auto devices = nm_client_get_all_devices (client);
+        auto devices = nm_client_get_all_devices(client);
         if (!devices) {
             spdlog::warn("Failed to get devices");
             g_object_unref(client);
@@ -285,8 +284,7 @@ namespace RPI {
     }
 
     const char *
-    nmc_wifi_strength_bars(guint8 strength)
-    {
+    nmc_wifi_strength_bars(guint8 strength) {
         if (strength > 80)
             return /* ▂▄▆█ */ "\342\226\202\342\226\204\342\226\206\342\226\210";
         else if (strength > 55)
@@ -299,25 +297,782 @@ namespace RPI {
             return /* ____ */ "____";
     }
 
-    WifiConnectState
-    connectWifi(const std::string &interface_name, const std::string &ssid, const std::string &password) {
-        GError * error = nullptr;
+    /*
+     * Find AP on 'device' according to 'bssid' and 'ssid' parameters.
+     * Returns: found AP or NULL
+     */
+    static NMAccessPoint *
+    find_ap_on_device(NMDevice *device, const char *bssid, const char *ssid, gboolean complete) {
+        const GPtrArray *aps;
+        NMAccessPoint *ap = nullptr;
+        int i;
+
+        g_return_val_if_fail(NM_IS_DEVICE_WIFI(device), NULL);
+
+        aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(device));
+        for (i = 0; i < aps->len; i++) {
+            auto candidate_ap = (NMAccessPoint *) g_ptr_array_index(aps, i);
+
+            if (bssid) {
+                const char *candidate_bssid = nm_access_point_get_bssid(candidate_ap);
+
+                if (!candidate_bssid)
+                    continue;
+
+                /* Compare BSSIDs */
+                if (complete) {
+                    if (g_str_has_prefix(candidate_bssid, bssid))
+                        spdlog::debug("{}", candidate_bssid);
+                } else if (strcmp(bssid, candidate_bssid) != 0)
+                    continue;
+            }
+
+            if (ssid) {
+                /* Parameter is SSID */
+                GBytes *candidate_ssid;
+                char *ssid_tmp;
+
+                candidate_ssid = nm_access_point_get_ssid(candidate_ap);
+                if (!candidate_ssid)
+                    continue;
+
+                ssid_tmp = nm_utils_ssid_to_utf8((const guint8 *) g_bytes_get_data(candidate_ssid, nullptr),
+                                                 (gsize) g_bytes_get_size(candidate_ssid));
+
+                /* Compare SSIDs */
+                if (complete) {
+                    if (g_str_has_prefix(ssid_tmp, ssid))
+                        spdlog::debug("{}", ssid_tmp);
+                } else if (strcmp(ssid, ssid_tmp) != 0) {
+                    g_free(ssid_tmp);
+                    continue;
+                }
+                g_free(ssid_tmp);
+            }
+
+            if (complete)
+                continue;
+
+            ap = candidate_ap;
+            break;
+        }
+
+        return ap;
+    }
+
+    struct WifiConnectData {
+        NMClient *client{nullptr};
+        NMDevice *device{nullptr};
+        std::string return_text;
+        NMCResultCode return_value;
+        GMainLoop *loop{nullptr};
+        gboolean create;
+        gboolean hotspot;
+        NMConnection *connection;
+        NMActiveConnection *active{nullptr};
+        guint progress_id{0};
+        std::function<void(const char *)> state_callback;
+        const char *specific_object;
+        /* Operation timeout */
+        int timeout{90};
+        void quite() {
+            nm_clear_g_source(&progress_id);
+            g_main_loop_quit(loop);
+        }
+    };
+
+    static const char *
+    _device_state_externally_to_string(NMDeviceState state) {
+        switch (state) {
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_PREPARE, N_("connecting (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_CONFIG, N_("connecting (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_NEED_AUTH, N_("connecting (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_IP_CONFIG, N_("connecting (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_IP_CHECK, N_("connecting (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_SECONDARIES, N_("connecting (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_ACTIVATED, N_("connected (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_DEACTIVATING, N_("deactivating (externally)"))
+            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_FAILED, N_("deactivating (externally)"))
+            NM_UTILS_LOOKUP_ITEM_IGNORE_OTHER()
+        }
+        NM_UTILS_LOOKUP_DEFAULT(NULL);
+    }
+
+    const char *
+    nmc_device_state_to_string_with_external(NMDevice *device) {
+        NMActiveConnection *ac;
+        NMDeviceState state;
+        const char *s;
+
+        state = nm_device_get_state(device);
+
+        if ((ac = nm_device_get_active_connection(device))
+            && NM_FLAGS_HAS(nm_active_connection_get_state_flags(ac), NM_ACTIVATION_STATE_FLAG_EXTERNAL)
+            && (s = _device_state_externally_to_string(state)))
+            return s;
+
+        return nmc_device_state_to_string(state);
+    }
+
+    static gboolean
+    progress_cb(gpointer user_data) {
+        auto info = (WifiConnectData *) (user_data);
+        info->state_callback(nmc_device_state_to_string_with_external(info->device));
+        return TRUE;
+    }
+
+    const char *
+    nmc_connection_check_deprecated(NMConnection *c) {
+        NMSettingWirelessSecurity *s_wsec;
+        const char *key_mgmt;
+        const char *type;
+
+        type = nm_connection_get_connection_type(c);
+        if (nm_streq0(type, NM_SETTING_WIMAX_SETTING_NAME))
+            return "WiMax is no longer supported";
+
+        s_wsec = nm_connection_get_setting_wireless_security(c);
+        if (s_wsec) {
+            key_mgmt = nm_setting_wireless_security_get_key_mgmt(s_wsec);
+            if (NM_IN_STRSET(key_mgmt, "ieee8021x", "none"))
+                return "WEP encryption is known to be insecure";
+        }
+
+        return nullptr;
+    }
+
+    static void
+    add_and_activate_info_free(WifiConnectData *info) {
+        g_object_unref(info->device);
+        g_clear_object(&info->active);
+    }
+
+    static void
+    add_and_activate_check_state(WifiConnectData *info) {
+        NMDeviceState state;
+        NMDeviceStateReason reason;
+        NMActiveConnectionState ac_state;
+
+        state = nm_device_get_state(info->device);
+        ac_state = nm_active_connection_get_state(info->active);
+
+        if (ac_state == NM_ACTIVE_CONNECTION_STATE_ACTIVATING)
+            return;
+
+        if (state == NM_DEVICE_STATE_ACTIVATED) {
+            spdlog::info("Device '{}' successfully activated with '{}'.",
+                         nm_device_get_iface(info->device),
+                         nm_active_connection_get_uuid(info->active));
+
+            if (info->hotspot)
+                spdlog::info("Hint: \"nmcli dev wifi show-password\" shows the Wi-Fi name and password.\n");
+        } else if (state <= NM_DEVICE_STATE_DISCONNECTED || state >= NM_DEVICE_STATE_DEACTIVATING) {
+            reason = nm_device_get_state_reason(info->device);
+            info->return_text = fmt::format("Error: Connection activation failed: {}.",
+                                            nmc_device_reason_to_string(reason));
+            info->return_value = NMC_RESULT_ERROR_CON_ACTIVATION;
+        } else {
+            return;
+        }
+        add_and_activate_info_free(info);
+        info->quite();
+    }
+
+
+    static void
+    add_and_activate_notify_state_cb(GObject *src, GParamSpec *pspec, gpointer user_data) {
+        add_and_activate_check_state((WifiConnectData *) user_data);
+    }
+
+    static gboolean
+    timeout_cb(gpointer user_data) {
+        /* Time expired -> exit nmcli */
+
+        auto info = (WifiConnectData *) user_data;
+        info->return_text = fmt::format("Error: Timeout %d sec expired.", info->timeout);
+        info->return_value = NMC_RESULT_ERROR_TIMEOUT_EXPIRED;
+        info->quite();
+        return FALSE;
+    }
+
+    static void
+    add_and_activate_cb(GObject *client, GAsyncResult *result, gpointer user_data) {
+        auto info = (WifiConnectData *) user_data;
+        NMActiveConnection *active = nullptr;
+        const char *deprecated;
+        GError *error = nullptr;
+        if (info->create)
+            active = nm_client_add_and_activate_connection_finish(NM_CLIENT(client), result, &error);
+        else
+            active = nm_client_activate_connection_finish(NM_CLIENT(client), result, &error);
+
+        if (error) {
+            if (info->hotspot) {
+                info->return_text = fmt::format("Error: Failed to setup a Wi-Fi hotspot: {}", error->message);
+            } else if (info->create) {
+                info->return_text = fmt::format("Error: Failed to add/activate new connection: : {}", error->message);
+            } else {
+                info->return_text = fmt::format("Error: Failed to activate connection: {}", error->message);
+            }
+            info->return_value = NMC_RESULT_ERROR_CON_ACTIVATION;
+            info->quite();
+            g_error_free(error);
+            return;
+        }
+
+        deprecated = nmc_connection_check_deprecated(NM_CONNECTION(nm_active_connection_get_connection(active)));
+        if (deprecated)
+            spdlog::warn("Warning: {}.", deprecated);
+
+        if(info->state_callback) {
+            info->progress_id = g_timeout_add(120, progress_cb, info);
+        }
+
+        info->active = g_steal_pointer(&active);
+
+        g_signal_connect(info->device,
+                         "notify::" NM_DEVICE_STATE,
+                         G_CALLBACK(add_and_activate_notify_state_cb),
+                         info);
+
+        g_signal_connect(info->active,
+                         "notify::" NM_ACTIVE_CONNECTION_STATE,
+                         G_CALLBACK(add_and_activate_notify_state_cb),
+                         info);
+
+        add_and_activate_check_state(g_steal_pointer(&info));
+
+        g_timeout_add_seconds(info->timeout, timeout_cb, info); /* Exit if timeout expires */
+    }
+
+
+    static void
+    activate_update2_cb(GObject *source_object, GAsyncResult *res, gpointer user_data) {
+        auto remote_con = NM_REMOTE_CONNECTION(source_object);
+        auto info = (WifiConnectData *) user_data;
+        GError *error = nullptr;
+        auto ret = nm_remote_connection_update2_finish(remote_con, res, &error);
+        if (!ret) {
+            info->return_text = fmt::format("Error: {}.", error->message);
+            info->return_value = NMC_RESULT_ERROR_UNKNOWN;
+            g_error_free(error);
+            info->quite();
+            return;
+        }
+
+        nm_client_activate_connection_async(info->client,
+                                            NM_CONNECTION(remote_con),
+                                            info->device,
+                                            info->specific_object,
+                                            nullptr,
+                                            add_and_activate_cb,
+                                            info);
+        g_object_unref(ret);
+    }
+
+    static void
+    save_and_activate_connection(WifiConnectData *data) {
+        if (NM_IS_REMOTE_CONNECTION(data->connection)) {
+            nm_remote_connection_update2(NM_REMOTE_CONNECTION(data->connection),
+                                         nm_connection_to_dbus(data->connection, NM_CONNECTION_SERIALIZE_ALL),
+                                         NM_SETTINGS_UPDATE2_FLAG_BLOCK_AUTOCONNECT,
+                                         nullptr,
+                                         nullptr,
+                                         activate_update2_cb,
+                                         data);
+        } else {
+            nm_client_add_and_activate_connection_async(data->client,
+                                                        data->connection,
+                                                        data->device,
+                                                        data->specific_object,
+                                                        nullptr,
+                                                        add_and_activate_cb,
+                                                        data);
+        }
+    }
+
+    NMCResultCode
+    connect_wifi_ap(const std::string &interface_name, const std::string &bssid, const std::string &password, std::function<void(const char*)> state_callback) {
+        GError *error = nullptr;
+        NMAccessPoint *ap;
+        NMSettingWireless *s_wifi;
+        const GPtrArray *avail_cons;
+        NM80211ApFlags ap_flags;
+        NM80211ApSecurityFlags ap_wpa_flags;
+        NM80211ApSecurityFlags ap_rsn_flags;
+        GBytes *ssid = nullptr;
+        GBytes *bssid_bytes = nullptr;
+        GMainLoop *loop;
+        // 创建 NetworkManager 客户端
+        NMClient *client = nm_client_new(nullptr, &error);
+        WifiConnectData info{
+                .client = client,
+                .return_value = NMC_RESULT_SUCCESS,
+                .state_callback = std::move(state_callback),
+        };
+        if (error) {
+            spdlog::error("Error creating NMClient: {}", error->message);
+            info.return_value = NMC_RESULT_ERROR_UNKNOWN;
+            goto out;
+        }
+
+        info.device = nm_client_get_device_by_iface(client, interface_name.c_str());
+        if (!info.device) {
+            spdlog::error("Device {} not found", interface_name);
+            info.return_value = NMC_RESULT_ERROR_NOT_FOUND;
+            goto out;
+        }
+        ap = find_ap_on_device(info.device, bssid.c_str(), nullptr, FALSE);
+        if (!ap) {
+            spdlog::error("AP {} not found", bssid);
+            info.return_value = NMC_RESULT_ERROR_NOT_FOUND;
+            goto out;
+        }
+        ssid = nm_access_point_get_ssid(ap);
+        avail_cons = nm_device_get_available_connections(info.device);
+        for (int i = 0; i < avail_cons->len; i++) {
+            auto avail_con = (NMConnection *) g_ptr_array_index(avail_cons, i);
+            if (nm_access_point_connection_valid(ap, NM_CONNECTION(avail_con))) {
+                /* ap has been checked against bssid1, bssid2 and the ssid
+                 * and now avail_con has been checked against ap.
+                 */
+                info.connection = g_object_ref(avail_con);
+                break;
+            }
+        }
+        if (!info.connection) {
+            /* If there are some connection data from user, create a connection and
+             * fill them into proper settings. */
+            info.connection = nm_simple_connection_new();
+
+            s_wifi = (NMSettingWireless *) nm_setting_wireless_new();
+            nm_connection_add_setting(info.connection, NM_SETTING(s_wifi));
+
+            /* 'bssid' parameter is used to restrict the connection only to the BSSID */
+            g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid.c_str(), NULL);
+            /* 'hidden' parameter is used to indicate that SSID is not broadcasted */
+            if (!ssid) {
+                ssid = g_bytes_new(bssid.c_str(), bssid.length());
+                g_object_set(s_wifi,
+                             NM_SETTING_WIRELESS_SSID,
+                             ssid,
+                             NM_SETTING_WIRELESS_HIDDEN,
+                             TRUE,
+                             NULL);
+                g_bytes_unref(ssid);
+            }
+        }
+        /* handle password */
+        ap_flags = nm_access_point_get_flags(ap);
+        ap_wpa_flags = nm_access_point_get_wpa_flags(ap);
+        ap_rsn_flags = nm_access_point_get_rsn_flags(ap);
+        /* Set password for WEP or WPA-PSK. */
+        if ((ap_flags & NM_802_11_AP_FLAGS_PRIVACY)
+            || (ap_wpa_flags != NM_802_11_AP_SEC_NONE
+                && !NM_FLAGS_ANY(ap_wpa_flags,
+                                 NM_802_11_AP_SEC_KEY_MGMT_OWE | NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))
+            || (ap_rsn_flags != NM_802_11_AP_SEC_NONE
+                && !NM_FLAGS_ANY(ap_rsn_flags,
+                                 NM_802_11_AP_SEC_KEY_MGMT_OWE | NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))) {
+            NMSettingWirelessSecurity *s_wsec = nullptr;
+
+            if (!password.empty()) {
+                if (!info.connection)
+                    info.connection = nm_simple_connection_new();
+                if (!s_wsec) {
+                    s_wsec = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
+                    nm_connection_add_setting(info.connection, NM_SETTING(s_wsec));
+                }
+
+                if (ap_wpa_flags == NM_802_11_AP_SEC_NONE && ap_rsn_flags == NM_802_11_AP_SEC_NONE) {
+                    /* WEP */
+                    nm_setting_wireless_security_set_wep_key(s_wsec, 0, password.c_str());
+                    g_object_set(G_OBJECT(s_wsec),
+                                 NM_SETTING_WIRELESS_SECURITY_WEP_KEY_TYPE,
+                                 NM_WEP_KEY_TYPE_PASSPHRASE,
+                                 NULL);
+                } else if ((ap_wpa_flags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
+                           || (ap_rsn_flags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
+                           || (ap_rsn_flags & NM_802_11_AP_SEC_KEY_MGMT_SAE)) {
+                    /* WPA PSK */
+                    g_object_set(s_wsec, NM_SETTING_WIRELESS_SECURITY_PSK, password.c_str(), NULL);
+                }
+            }
+        }
+        info.loop = g_main_loop_new(nullptr, FALSE);
+        info.hotspot = FALSE;
+        info.create = !NM_IS_REMOTE_CONNECTION(info.connection);
+        info.specific_object = nm_object_get_path(NM_OBJECT(ap));
+        save_and_activate_connection(&info);
+        g_main_loop_run(info.loop);
+        g_main_loop_unref(info.loop);
+        out:
+        g_object_unref(info.connection);
+        g_object_unref(client);
+        g_error_free(error);
+        g_bytes_unref(ssid);
+        g_bytes_unref(bssid_bytes);
+        return info.return_value;
+    }
+
+    NMCResultCode exist_connect_wifi_ap(const std::string &interface_name, const std::string &bssid) {
+        GError *error = nullptr;
+        NMDevice *device;
+        auto ret = NMC_RESULT_SUCCESS;
         // 创建 NetworkManager 客户端
         NMClient *client = nm_client_new(nullptr, &error);
         if (error) {
             spdlog::error("Error creating NMClient: {}", error->message);
-            g_error_free(error);
-            return {};
+            ret = NMC_RESULT_ERROR_UNKNOWN;
+            goto out;
         }
-
-        auto device = nm_client_get_device_by_iface(client, interface_name.c_str());
+        device = nm_client_get_device_by_iface(client, interface_name.c_str());
         if (!device) {
             spdlog::error("Device {} not found", interface_name);
-            g_object_unref(client);
-            return {};
+            ret = NMC_RESULT_ERROR_NOT_FOUND;
+            goto out;
         }
-        g_object_unref(device);
+        if (!find_ap_on_device(device, bssid.c_str(), nullptr, FALSE)) {
+            spdlog::error("AP {} not found", bssid);
+            ret = NMC_RESULT_ERROR_NOT_FOUND;
+            goto out;
+        }
+        out:
         g_object_unref(client);
-        return WIFI_Failed;
+        g_error_free(error);
+        return ret;
+    }
+
+    static NMConnection *
+    find_hotspot_conn(NMDevice        *device,
+                      const GPtrArray *connections,
+                      const char      *con_name,
+                      GBytes          *ssid_bytes,
+                      const char      *wifi_mode,
+                      const char      *band,
+                      gint64           channel_int)
+    {
+        NMConnection      *connection;
+        NMSettingWireless *s_wifi;
+        int                i;
+
+        for (i = 0; i < connections->len; i++) {
+            connection = NM_CONNECTION(connections->pdata[i]);
+
+            s_wifi = nm_connection_get_setting_wireless(connection);
+            if (!s_wifi)
+                continue;
+
+            if (channel_int != -1 && nm_setting_wireless_get_channel(s_wifi) != channel_int)
+                continue;
+
+            if (g_strcmp0(nm_setting_wireless_get_mode(s_wifi), wifi_mode) != 0)
+                continue;
+
+            if (band && g_strcmp0(nm_setting_wireless_get_band(s_wifi), band) != 0)
+                continue;
+
+            if (ssid_bytes && !g_bytes_equal(nm_setting_wireless_get_ssid(s_wifi), ssid_bytes))
+                continue;
+
+            if (!nm_device_connection_compatible(device, connection, nullptr))
+                continue;
+
+            return g_object_ref(connection);
+        }
+
+        return nullptr;
+    }
+
+    static GBytes *
+    generate_ssid_for_hotspot(void)
+    {
+        GBytes *ssid_bytes;
+        char   *ssid = NULL;
+
+        ssid = g_strdup_printf("Hotspot-%s", g_get_host_name());
+        if (strlen(ssid) > 32)
+            ssid[32] = '\0';
+        ssid_bytes = g_bytes_new(ssid, strlen(ssid));
+        g_free(ssid);
+
+        return ssid_bytes;
+    }
+
+    static NMConnection *
+    create_hotspot_conn(const GPtrArray *connections,
+                        const char      *con_name,
+                        GBytes          *ssid_bytes,
+                        const char      *wifi_mode,
+                        const char      *band,
+                        gint64           channel_int)
+    {
+        char                      *default_name = NULL;
+        NMConnection              *connection;
+        NMSettingConnection       *s_con;
+        NMSettingWireless         *s_wifi;
+        NMSettingWirelessSecurity *s_wsec;
+        NMSettingIPConfig         *s_ip4, *s_ip6;
+        NMSettingProxy            *s_proxy;
+
+        nm_assert(channel_int == -1 || band);
+
+        connection = nm_simple_connection_new();
+        s_con      = (NMSettingConnection *) nm_setting_connection_new();
+        nm_connection_add_setting(connection, NM_SETTING(s_con));
+        if (!con_name)
+            con_name = default_name = nmc_unique_connection_name(connections, "Hotspot");
+        g_object_set(s_con,
+                     NM_SETTING_CONNECTION_ID,
+                     con_name,
+                     NM_SETTING_CONNECTION_AUTOCONNECT,
+                     FALSE,
+                     NULL);
+        g_free(default_name);
+
+        s_wifi = (NMSettingWireless *) nm_setting_wireless_new();
+        nm_connection_add_setting(connection, NM_SETTING(s_wifi));
+
+        g_object_set(s_wifi,
+                     NM_SETTING_WIRELESS_MODE,
+                     wifi_mode,
+                     NM_SETTING_WIRELESS_SSID,
+                     ssid_bytes,
+                     NULL);
+
+        if (channel_int != -1) {
+            g_object_set(s_wifi,
+                         NM_SETTING_WIRELESS_CHANNEL,
+                         (guint32) channel_int,
+                         NM_SETTING_WIRELESS_BAND,
+                         band,
+                         NULL);
+        } else if (band) {
+            g_object_set(s_wifi, NM_SETTING_WIRELESS_BAND, band, NULL);
+        }
+
+        s_wsec = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
+        nm_connection_add_setting(connection, NM_SETTING(s_wsec));
+
+        s_ip4 = (NMSettingIPConfig *) nm_setting_ip4_config_new();
+        nm_connection_add_setting(connection, NM_SETTING(s_ip4));
+        g_object_set(s_ip4, NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP4_CONFIG_METHOD_SHARED, NULL);
+
+        s_ip6 = (NMSettingIPConfig *) nm_setting_ip6_config_new();
+        nm_connection_add_setting(connection, NM_SETTING(s_ip6));
+        g_object_set(s_ip6, NM_SETTING_IP_CONFIG_METHOD, NM_SETTING_IP6_CONFIG_METHOD_IGNORE, NULL);
+
+        s_proxy = (NMSettingProxy *) nm_setting_proxy_new();
+        nm_connection_add_setting(connection, NM_SETTING(s_proxy));
+        g_object_set(s_proxy, NM_SETTING_PROXY_METHOD, (int) NM_SETTING_PROXY_METHOD_NONE, NULL);
+
+        return connection;
+    }
+
+    #define WPA_PASSKEY_SIZE 12
+    static void
+    generate_wpa_key(char *key, size_t len)
+    {
+        guint i;
+
+        g_return_if_fail(key);
+        g_return_if_fail(len > WPA_PASSKEY_SIZE);
+
+        for (i = 0; i < WPA_PASSKEY_SIZE; i++) {
+            int c;
+
+            do {
+                c = nm_random_u64_range_full(48, 122, TRUE);
+                /* skip characters that look similar */
+            } while (NM_IN_SET(c, '1', 'l', 'I', '0', 'O', 'Q', '8', 'B', '5', 'S')
+                     || !g_ascii_isalnum(c));
+
+            key[i] = (char) c;
+        }
+        key[WPA_PASSKEY_SIZE] = '\0';
+    }
+
+    static void
+    generate_wep_key(char *key, size_t len)
+    {
+        int         i;
+        const char *hexdigits = "0123456789abcdef";
+
+        g_return_if_fail(key);
+        g_return_if_fail(len > 10);
+
+        /* generate a 10-digit hex WEP key */
+        for (i = 0; i < 10; i++) {
+            int digit;
+
+            digit  = nm_random_u64_range_full(0, 16, TRUE);
+            key[i] = hexdigits[digit];
+        }
+        key[10] = '\0';
+    }
+
+    static gboolean
+    set_wireless_security_for_hotspot(NMSettingWirelessSecurity *s_wsec,
+                                      const char                *wifi_mode,
+                                      NMDeviceWifiCapabilities   caps,
+                                      const std::string &password,
+                                      gboolean                   show_password,
+                                      GError                   **error)
+    {
+        char        generated_key[20];
+        const char *key;
+        const char *key_mgmt;
+
+        if (g_strcmp0(wifi_mode, NM_SETTING_WIRELESS_MODE_AP) == 0) {
+            if (caps & NM_WIFI_DEVICE_CAP_RSN) {
+                nm_setting_wireless_security_add_proto(s_wsec, "rsn");
+                nm_setting_wireless_security_add_pairwise(s_wsec, "ccmp");
+                nm_setting_wireless_security_add_group(s_wsec, "ccmp");
+                key_mgmt = "wpa-psk";
+            } else if (caps & NM_WIFI_DEVICE_CAP_WPA) {
+                nm_setting_wireless_security_add_proto(s_wsec, "wpa");
+                nm_setting_wireless_security_add_pairwise(s_wsec, "tkip");
+                nm_setting_wireless_security_add_group(s_wsec, "tkip");
+                key_mgmt = "wpa-psk";
+            } else
+                key_mgmt = "none";
+        } else
+            key_mgmt = "none";
+
+        if (g_strcmp0(key_mgmt, "wpa-psk") == 0) {
+            /* use WPA */
+            if (!password.empty()) {
+                if (!nm_utils_wpa_psk_valid(password.c_str())) {
+                    g_set_error(error, NMCLI_ERROR, 0, _("'%s' is not valid WPA PSK"), password.c_str());
+                    return FALSE;
+                }
+                key = password.c_str();
+            } else {
+                generate_wpa_key(generated_key, sizeof(generated_key));
+                key = generated_key;
+            }
+            g_object_set(s_wsec,
+                         NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,
+                         key_mgmt,
+                         NM_SETTING_WIRELESS_SECURITY_PSK,
+                         key,
+                         NULL);
+        } else {
+            /* use WEP */
+            if (!password.empty()) {
+                if (!nm_utils_wep_key_valid(password.c_str(), NM_WEP_KEY_TYPE_KEY)) {
+                    g_set_error(error,
+                                NMCLI_ERROR,
+                                0,
+                                _("'%s' is not valid WEP key (it should be 5 or 13 ASCII chars)"),
+                                password.c_str());
+                    return FALSE;
+                }
+                key = password.c_str();
+            } else {
+                generate_wep_key(generated_key, sizeof(generated_key));
+                key = generated_key;
+            }
+            g_object_set(s_wsec,
+                         NM_SETTING_WIRELESS_SECURITY_KEY_MGMT,
+                         key_mgmt,
+                         NM_SETTING_WIRELESS_SECURITY_WEP_KEY0,
+                         key,
+                         NM_SETTING_WIRELESS_SECURITY_WEP_KEY_TYPE,
+                         NM_WEP_KEY_TYPE_KEY,
+                         NULL);
+        }
+        if (show_password)
+            spdlog::info(_("Hotspot password: {}\n"), key);
+
+        return TRUE;
+    }
+
+
+    NMCResultCode RPI::do_device_wifi_hotspot(const std::string &interface_name, const std::string &ssid,
+                                              const std::string &password) {
+        GError *error = nullptr;
+        const GPtrArray *connections;
+        NMConnection *connection = nullptr;
+        NMDevice *device;
+        GBytes *ssid_bytes = nullptr;
+        NMSettingWirelessSecurity    *s_wsec = nullptr;
+        if(!ssid.empty()) {
+            ssid_bytes = g_bytes_new(ssid.c_str(), ssid.size());
+        }
+        NMDeviceWifiCapabilities caps;
+        const char* wifi_mode;
+        WifiConnectData data{
+            .return_value = NMC_RESULT_SUCCESS,
+        };
+        data.client = nm_client_new(nullptr, &error);
+        if (error) {
+            spdlog::error("Error creating NMClient: {}", error->message);
+            data.return_value = NMC_RESULT_ERROR_UNKNOWN;
+            goto out;
+        }
+        /* Find Wi-Fi device. When no ifname is provided, the first Wi-Fi is used. */
+        device = nm_client_get_device_by_iface(data.client, interface_name.c_str());
+        if (!device) {
+            spdlog::error("Error: Device '%s' is not a Wi-Fi device.", interface_name);
+            goto out;
+        }
+
+        /* Check device supported mode */
+        caps = nm_device_wifi_get_capabilities(NM_DEVICE_WIFI(device));
+        if (caps & NM_WIFI_DEVICE_CAP_AP)
+            wifi_mode = NM_SETTING_WIRELESS_MODE_AP;
+        else if (caps & NM_WIFI_DEVICE_CAP_ADHOC)
+            wifi_mode = NM_SETTING_WIRELESS_MODE_ADHOC;
+        else {
+            spdlog::error("Error: Device '%s' does not support AP or Ad-Hoc mode.", interface_name);
+            data.return_value = NMC_RESULT_ERROR_UNKNOWN;
+            goto out;
+        }
+
+        connections = nm_client_get_connections(data.client);
+        connection = find_hotspot_conn(device, connections, nullptr, ssid_bytes, wifi_mode, nullptr, -1);
+        if (!connection) {
+            /* Create a connection with appropriate parameters */
+            if (!ssid_bytes)
+                ssid_bytes = generate_ssid_for_hotspot();
+            connection = create_hotspot_conn(connections, nullptr, ssid_bytes, wifi_mode, nullptr, -1);
+        }
+
+        if (!password.empty() || !NM_IS_REMOTE_CONNECTION(connection)) {
+            s_wsec = nm_connection_get_setting_wireless_security(connection);
+            if(s_wsec) {
+                spdlog::error("Error: Can't get wireless security from connection.");
+                data.return_value = NMC_RESULT_ERROR_UNKNOWN;
+                goto out;
+            }
+            if (!set_wireless_security_for_hotspot(s_wsec,
+                                                   wifi_mode,
+                                                   caps,
+                                                   password,
+                                                   FALSE,
+                                                   &error)) {
+                data.return_text = fmt::format(_("Error: Invalid 'password': {}."), error->message);
+                g_clear_error(&error);
+                data.return_value = NMC_RESULT_ERROR_UNKNOWN;
+                goto out;
+            }
+        }
+        data.hotspot = TRUE;
+        data.loop = g_main_loop_new(nullptr, FALSE);
+        data.create = !NM_IS_REMOTE_CONNECTION(data.connection);
+        save_and_activate_connection(&data);
+        g_main_loop_run(data.loop);
+        g_main_loop_unref(data.loop);
+        out:
+        g_object_unref(s_wsec);
+        g_object_unref(connection);
+        g_object_unref(data.client);
+        g_bytes_unref(ssid_bytes);
+        g_error_free(error);
+        if(data.return_value != NMC_RESULT_SUCCESS) {
+            spdlog::error(data.return_text);
+        }
+        return data.return_value;
     }
 }

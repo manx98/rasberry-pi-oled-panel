@@ -1,0 +1,5 @@
+#pragma once
+
+#define USE_SYS_RANDOM_H @USE_SYS_RANDOM_H@
+#define HAVE_GETRANDOM @HAVE_GETRANDOM@
+#define __USE_GNU 1

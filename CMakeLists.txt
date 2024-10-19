@@ -32,6 +32,8 @@ add_executable(${PROJECT_NAME} panel/main.cpp
         utils/wifi.h
         utils/nm-shared-utils.c
         utils/nm-shared-utils.h
+        utils/nm-utils.c
+        utils/nm-utils.h
 )
 
 if(CMAKE_SYSROOT)
@@ -44,4 +46,31 @@ pkg_check_modules(LIBNM REQUIRED libnm)
 foreach (LIBNM_INCLUDE_DIR ${LIBNM_INCLUDE_DIRS})
     target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SYSROOT}/${LIBNM_INCLUDE_DIR})
 endforeach ()
+
+# 检查 getrandom 函数是否存在
+include(CheckFunctionExists)
+
+# 检查 <sys/random.h> 中的 getrandom 函数
+check_function_exists(getrandom USE_SYS_RANDOM_H)
+
+# 检查 <linux/random.h> 中的 getrandom 函数
+check_function_exists(getrandom HAVE_GETRANDOM)
+
+# 设置预处理宏
+set(USE_SYS_RANDOM_H ${USE_SYS_RANDOM_H})
+if(${USE_SYS_RANDOM_H} OR ${HAVE_GETRANDOM})
+    set(HAVE_GETRANDOM 1)
+else ()
+    set(HAVE_GETRANDOM 0)
+endif ()
+
+# 创建配置头文件
+configure_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/config.h.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/config.h"
+)
+
+# 添加头文件搜索路径
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+
 target_link_libraries(${PROJECT_NAME} astra u8g2-arm-linux periphery spdlog ${LIBNM_LIBRARIES})

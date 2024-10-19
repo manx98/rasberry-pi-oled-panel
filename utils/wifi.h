@@ -7,6 +7,7 @@
 #include <libnm/NetworkManager.h>
 #include <list>
 #include <string>
+#include <functional>
 
 namespace RPI {
     struct NetWorkDeviceInfo {
@@ -30,13 +31,50 @@ namespace RPI {
 
     std::list<WifiInfo> getWifiList(const std::string &interface_name);
 
-    enum WifiConnectState {
-        WIFI_Failed,
-        WIFI_Connecting,
-        WIFI_Connected
+    /* nmcli exit codes */
+    enum NMCResultCode {
+        /* Indicates successful execution */
+        NMC_RESULT_SUCCESS = 0,
+
+        /* Unknown / unspecified error */
+        NMC_RESULT_ERROR_UNKNOWN = 1,
+
+        /* Wrong invocation of nmcli */
+        NMC_RESULT_ERROR_USER_INPUT = 2,
+
+        /* A timeout expired */
+        NMC_RESULT_ERROR_TIMEOUT_EXPIRED = 3,
+
+        /* Error in connection activation */
+        NMC_RESULT_ERROR_CON_ACTIVATION = 4,
+
+        /* Error in connection deactivation */
+        NMC_RESULT_ERROR_CON_DEACTIVATION = 5,
+
+        /* Error in device disconnect */
+        NMC_RESULT_ERROR_DEV_DISCONNECT = 6,
+
+        /* Error in connection deletion */
+        NMC_RESULT_ERROR_CON_DEL = 7,
+
+        /* NetworkManager is not running */
+        NMC_RESULT_ERROR_NM_NOT_RUNNING = 8,
+
+        /* No more used, keep to preserve API */
+        NMC_RESULT_ERROR_VERSIONS_MISMATCH = 9,
+
+        /* Connection/Device/AP not found */
+        NMC_RESULT_ERROR_NOT_FOUND = 10,
+
+        /* --complete-args signals a file name may follow */
+        NMC_RESULT_COMPLETE_FILE = 65,
     };
 
-    WifiConnectState connectWifi(const std::string &interface_name, const std::string &ssid, const std::string &password);
+    NMCResultCode exist_connect_wifi_ap(const std::string &interface_name, const std::string& bssid);
+
+    NMCResultCode connect_wifi_ap(const std::string &interface_name, const std::string& bssid, const std::string& password, std::function<void(const char*)> state_callback);
+
+    NMCResultCode do_device_wifi_hotspot(const std::string &interface_name, const std::string& ssid, const std::string& password);
 }
 
 #endif //RASPBERRY_PI_OLED_PANEL_WIFI_H
