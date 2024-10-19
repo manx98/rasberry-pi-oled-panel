@@ -14,7 +14,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define nm_assert(args) {}
 typedef const char *const StrvArray4Type[4];
 
 #define _NM_UTILS_STRING_TABLE_LOOKUP_DEFINE(fcn_name,                                         \

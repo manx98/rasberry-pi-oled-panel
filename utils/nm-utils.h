@@ -5,6 +5,9 @@
 #ifndef RASPBERRY_PI_OLED_PANEL_NM_UTILS_H
 #define RASPBERRY_PI_OLED_PANEL_NM_UTILS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <glib.h>
 #include <libnm/NetworkManager.h>
 #include "config.h"
@@ -278,6 +281,7 @@ nmc_unique_connection_name(const GPtrArray *connections, const char *try_name);
 
 /* Error quark for GError domain */
 #define NMCLI_ERROR (nmcli_error_quark())
+
 GQuark nmcli_error_quark(void);
 
 guint64
@@ -317,8 +321,7 @@ nm_random_u64_range_full(guint64 begin, guint64 end, gboolean crypto_bytes);
  * Returns: 0 on success or the negative errno from close().
  */
 static inline int
-nm_close_with_error(int fd)
-{
+nm_close_with_error(int fd) {
     int r;
 
     r = close(fd);
@@ -355,8 +358,7 @@ nm_close_with_error(int fd)
 }
 
 static inline void
-_nm_auto_protect_errno(const int *p_saved_errno)
-{
+_nm_auto_protect_errno(const int *p_saved_errno) {
     errno = *p_saved_errno;
 }
 
@@ -377,7 +379,7 @@ _nm_auto_protect_errno(const int *p_saved_errno)
  *
  * Everything from nm_close_with_error() applies.
  */
-inline void nm_close(int fd);
+static inline void nm_close(int fd);
 
 static inline void _nm_auto_close(int *pfd);
 
@@ -476,5 +478,7 @@ NM_AUTO_DEFINE_FCN_VOID0(GMutex *, _nm_auto_unlock_g_mutex, g_mutex_unlock);
  * which has a possibly unexpected non-function-like behavior.
  * Use NM_IN_SET_SE if you need all arguments to be evaluated. */
 #define NM_IN_SET(x, ...) _NM_IN_SET(NM_UNIQ, ||, typeof(x), x, __VA_ARGS__)
-
+#ifdef __cplusplus
+}
+#endif
 #endif //RASPBERRY_PI_OLED_PANEL_NM_UTILS_H

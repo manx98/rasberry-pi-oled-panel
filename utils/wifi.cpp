@@ -989,7 +989,7 @@ namespace RPI {
     }
 
 
-    NMCResultCode RPI::do_device_wifi_hotspot(const std::string &interface_name, const std::string &ssid,
+    NMCResultCode do_device_wifi_hotspot(const std::string &interface_name, const std::string &ssid,
                                               const std::string &password) {
         GError *error = nullptr;
         const GPtrArray *connections;

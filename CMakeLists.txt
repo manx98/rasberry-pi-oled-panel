@@ -47,14 +47,14 @@ foreach (LIBNM_INCLUDE_DIR ${LIBNM_INCLUDE_DIRS})
     target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SYSROOT}/${LIBNM_INCLUDE_DIR})
 endforeach ()
 
-# 检查 getrandom 函数是否存在
-include(CheckFunctionExists)
+# 引入 CheckSymbolExists 模块
+include(CheckSymbolExists)
 
 # 检查 <sys/random.h> 中的 getrandom 函数
-check_function_exists(getrandom USE_SYS_RANDOM_H)
+check_symbol_exists(getrandom "sys/random.h" USE_SYS_RANDOM_H)
 
 # 检查 <linux/random.h> 中的 getrandom 函数
-check_function_exists(getrandom HAVE_GETRANDOM)
+check_symbol_exists(getrandom "<linux/random.h>" HAVE_GETRANDOM)
 
 # 设置预处理宏
 set(USE_SYS_RANDOM_H ${USE_SYS_RANDOM_H})
