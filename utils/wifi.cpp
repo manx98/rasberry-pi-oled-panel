@@ -67,14 +67,13 @@ namespace RPI {
         if (access_points) {
             for (guint i = 0; i < access_points->len; i++) {
                 NMAccessPoint *ap = NM_ACCESS_POINT(g_ptr_array_index(access_points, i));
-
+                if (!ap) {
+                    continue;
+                }
                 WifiInfo info;
                 // 获取 Wi-Fi SSID
-                const GByteArray *ssid = (GByteArray *) nm_access_point_get_ssid(ap);
-                if (ssid && ssid->len > 0) {
-                    info.SSID = std::string((const char *) ssid->data, ssid->len);
-                }
-                info.BSS = nm_access_point_get_bssid(ap);
+                info.SSID = gBytesToStr(nm_access_point_get_ssid(ap));
+                info.BSS = cStr(nm_access_point_get_bssid(ap));
                 // 获取信号强度和频率
                 info.strength = nm_access_point_get_strength(ap);
                 info.frequency = nm_access_point_get_frequency(ap);
@@ -258,10 +257,10 @@ namespace RPI {
             info.state = nm_device_get_state(device);
 
             // 获取设备唯一标识符
-            info.uid = nm_device_get_udi(device);
+            info.uid = cStr(nm_device_get_udi(device));
 
             // 获取设备接口名称
-            info.iface = nm_device_get_iface(device);
+            info.iface = cStr(nm_device_get_iface(device));
 
             // 获取连接信息
             NMActiveConnection *active_connection = nm_device_get_active_connection(device);
@@ -269,9 +268,10 @@ namespace RPI {
                 auto connection = (NMConnection *) nm_active_connection_get_connection(active_connection);
                 if (connection) {
                     auto setting_wireless = nm_connection_get_setting_wireless(connection);
-                    gsize ssid_len;
-                    auto ssid_data = g_bytes_get_data(nm_setting_wireless_get_ssid(setting_wireless), &ssid_len);
-                    info.SSID = std::string((const char *) ssid_data, ssid_len);
+                    if (!setting_wireless) {
+                        continue;
+                    }
+                    info.SSID = gBytesToStr(nm_setting_wireless_get_ssid(setting_wireless));
                 }
             }
 
@@ -302,7 +302,7 @@ namespace RPI {
      * Returns: found AP or NULL
      */
     static NMAccessPoint *
-    find_ap_on_device(NMDevice *device, const char *bssid, const char *ssid, gboolean complete) {
+    find_ap_on_device(NMDevice *device, const char *bssid) {
         const GPtrArray *aps;
         NMAccessPoint *ap = nullptr;
         int i;
@@ -319,40 +319,9 @@ namespace RPI {
                 if (!candidate_bssid)
                     continue;
 
-                /* Compare BSSIDs */
-                if (complete) {
-                    if (g_str_has_prefix(candidate_bssid, bssid))
-                        spdlog::debug("{}", candidate_bssid);
-                } else if (strcmp(bssid, candidate_bssid) != 0)
+                if (strcmp(bssid, candidate_bssid) != 0)
                     continue;
             }
-
-            if (ssid) {
-                /* Parameter is SSID */
-                GBytes *candidate_ssid;
-                char *ssid_tmp;
-
-                candidate_ssid = nm_access_point_get_ssid(candidate_ap);
-                if (!candidate_ssid)
-                    continue;
-
-                ssid_tmp = nm_utils_ssid_to_utf8((const guint8 *) g_bytes_get_data(candidate_ssid, nullptr),
-                                                 (gsize) g_bytes_get_size(candidate_ssid));
-
-                /* Compare SSIDs */
-                if (complete) {
-                    if (g_str_has_prefix(ssid_tmp, ssid))
-                        spdlog::debug("{}", ssid_tmp);
-                } else if (strcmp(ssid, ssid_tmp) != 0) {
-                    g_free(ssid_tmp);
-                    continue;
-                }
-                g_free(ssid_tmp);
-            }
-
-            if (complete)
-                continue;
-
             ap = candidate_ap;
             break;
         }
@@ -375,6 +344,7 @@ namespace RPI {
         const char *specific_object;
         /* Operation timeout */
         int timeout{90};
+
         void quite() {
             nm_clear_g_source(&progress_id);
             g_main_loop_quit(loop);
@@ -443,7 +413,6 @@ namespace RPI {
 
     static void
     add_and_activate_info_free(WifiConnectData *info) {
-        g_object_unref(info->device);
         g_clear_object(&info->active);
     }
 
@@ -470,7 +439,11 @@ namespace RPI {
             reason = nm_device_get_state_reason(info->device);
             info->return_text = fmt::format("Error: Connection activation failed: {}.",
                                             nmc_device_reason_to_string(reason));
-            info->return_value = NMC_RESULT_ERROR_CON_ACTIVATION;
+            if (reason == NM_DEVICE_STATE_REASON_NO_SECRETS) {
+                info->return_value = NMC_RESULT_ERROR_CON_REQUIRE_SECRET;
+            } else {
+                info->return_value = NMC_RESULT_ERROR_CON_ACTIVATION;
+            }
         } else {
             return;
         }
@@ -524,7 +497,7 @@ namespace RPI {
         if (deprecated)
             spdlog::warn("Warning: {}.", deprecated);
 
-        if(info->state_callback) {
+        if (info->state_callback) {
             info->progress_id = g_timeout_add(120, progress_cb, info);
         }
 
@@ -540,7 +513,7 @@ namespace RPI {
                          G_CALLBACK(add_and_activate_notify_state_cb),
                          info);
 
-        add_and_activate_check_state(g_steal_pointer(&info));
+        add_and_activate_check_state(info);
 
         g_timeout_add_seconds(info->timeout, timeout_cb, info); /* Exit if timeout expires */
     }
@@ -592,7 +565,8 @@ namespace RPI {
     }
 
     NMCResultCode
-    connect_wifi_ap(const std::string &interface_name, const std::string &bssid, const std::string &password, std::function<void(const char*)> state_callback) {
+    connect_wifi_ap(const std::string &interface_name, const std::string &bssid, const std::string &password,
+                    std::function<void(const char *)> state_callback) {
         GError *error = nullptr;
         NMAccessPoint *ap;
         NMSettingWireless *s_wifi;
@@ -602,7 +576,6 @@ namespace RPI {
         NM80211ApSecurityFlags ap_rsn_flags;
         GBytes *ssid = nullptr;
         GBytes *bssid_bytes = nullptr;
-        GMainLoop *loop;
         // 创建 NetworkManager 客户端
         NMClient *client = nm_client_new(nullptr, &error);
         WifiConnectData info{
@@ -622,13 +595,16 @@ namespace RPI {
             info.return_value = NMC_RESULT_ERROR_NOT_FOUND;
             goto out;
         }
-        ap = find_ap_on_device(info.device, bssid.c_str(), nullptr, FALSE);
+        ap = find_ap_on_device(info.device, bssid.c_str());
         if (!ap) {
             spdlog::error("AP {} not found", bssid);
             info.return_value = NMC_RESULT_ERROR_NOT_FOUND;
             goto out;
         }
         ssid = nm_access_point_get_ssid(ap);
+        if (ssid) {
+            ssid = g_bytes_ref(ssid);
+        }
         avail_cons = nm_device_get_available_connections(info.device);
         for (int i = 0; i < avail_cons->len; i++) {
             auto avail_con = (NMConnection *) g_ptr_array_index(avail_cons, i);
@@ -679,10 +655,8 @@ namespace RPI {
             if (!password.empty()) {
                 if (!info.connection)
                     info.connection = nm_simple_connection_new();
-                if (!s_wsec) {
-                    s_wsec = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
-                    nm_connection_add_setting(info.connection, NM_SETTING(s_wsec));
-                }
+                s_wsec = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
+                nm_connection_add_setting(info.connection, NM_SETTING(s_wsec));
 
                 if (ap_wpa_flags == NM_802_11_AP_SEC_NONE && ap_rsn_flags == NM_802_11_AP_SEC_NONE) {
                     /* WEP */
@@ -696,6 +670,7 @@ namespace RPI {
                            || (ap_rsn_flags & NM_802_11_AP_SEC_KEY_MGMT_SAE)) {
                     /* WPA PSK */
                     g_object_set(s_wsec, NM_SETTING_WIRELESS_SECURITY_PSK, password.c_str(), NULL);
+                    g_object_set(s_wsec, NM_SETTING_WIRELESS_SECURITY_KEY_MGMT, "wpa-psk", NULL);
                 }
             }
         }
@@ -707,11 +682,13 @@ namespace RPI {
         g_main_loop_run(info.loop);
         g_main_loop_unref(info.loop);
         out:
-        g_object_unref(info.connection);
         g_object_unref(client);
-        g_error_free(error);
+        g_clear_error(&error);
         g_bytes_unref(ssid);
         g_bytes_unref(bssid_bytes);
+        if (info.return_value != NMC_RESULT_SUCCESS) {
+            spdlog::warn(info.return_text);
+        }
         return info.return_value;
     }
 
@@ -732,7 +709,7 @@ namespace RPI {
             ret = NMC_RESULT_ERROR_NOT_FOUND;
             goto out;
         }
-        if (!find_ap_on_device(device, bssid.c_str(), nullptr, FALSE)) {
+        if (!find_ap_on_device(device, bssid.c_str())) {
             spdlog::error("AP {} not found", bssid);
             ret = NMC_RESULT_ERROR_NOT_FOUND;
             goto out;
@@ -744,17 +721,16 @@ namespace RPI {
     }
 
     static NMConnection *
-    find_hotspot_conn(NMDevice        *device,
+    find_hotspot_conn(NMDevice *device,
                       const GPtrArray *connections,
-                      const char      *con_name,
-                      GBytes          *ssid_bytes,
-                      const char      *wifi_mode,
-                      const char      *band,
-                      gint64           channel_int)
-    {
-        NMConnection      *connection;
+                      const char *con_name,
+                      GBytes *ssid_bytes,
+                      const char *wifi_mode,
+                      const char *band,
+                      gint64 channel_int) {
+        NMConnection *connection;
         NMSettingWireless *s_wifi;
-        int                i;
+        int i;
 
         for (i = 0; i < connections->len; i++) {
             connection = NM_CONNECTION(connections->pdata[i]);
@@ -785,10 +761,9 @@ namespace RPI {
     }
 
     static GBytes *
-    generate_ssid_for_hotspot(void)
-    {
+    generate_ssid_for_hotspot(void) {
         GBytes *ssid_bytes;
-        char   *ssid = NULL;
+        char *ssid = NULL;
 
         ssid = g_strdup_printf("Hotspot-%s", g_get_host_name());
         if (strlen(ssid) > 32)
@@ -801,24 +776,23 @@ namespace RPI {
 
     static NMConnection *
     create_hotspot_conn(const GPtrArray *connections,
-                        const char      *con_name,
-                        GBytes          *ssid_bytes,
-                        const char      *wifi_mode,
-                        const char      *band,
-                        gint64           channel_int)
-    {
-        char                      *default_name = NULL;
-        NMConnection              *connection;
-        NMSettingConnection       *s_con;
-        NMSettingWireless         *s_wifi;
+                        const char *con_name,
+                        GBytes *ssid_bytes,
+                        const char *wifi_mode,
+                        const char *band,
+                        gint64 channel_int) {
+        char *default_name = NULL;
+        NMConnection *connection;
+        NMSettingConnection *s_con;
+        NMSettingWireless *s_wifi;
         NMSettingWirelessSecurity *s_wsec;
-        NMSettingIPConfig         *s_ip4, *s_ip6;
-        NMSettingProxy            *s_proxy;
+        NMSettingIPConfig *s_ip4, *s_ip6;
+        NMSettingProxy *s_proxy;
 
         nm_assert(channel_int == -1 || band);
 
         connection = nm_simple_connection_new();
-        s_con      = (NMSettingConnection *) nm_setting_connection_new();
+        s_con = (NMSettingConnection *) nm_setting_connection_new();
         nm_connection_add_setting(connection, NM_SETTING(s_con));
         if (!con_name)
             con_name = default_name = nmc_unique_connection_name(connections, "Hotspot");
@@ -869,10 +843,10 @@ namespace RPI {
         return connection;
     }
 
-    #define WPA_PASSKEY_SIZE 12
+#define WPA_PASSKEY_SIZE 12
+
     static void
-    generate_wpa_key(char *key, size_t len)
-    {
+    generate_wpa_key(char *key, size_t len) {
         guint i;
 
         g_return_if_fail(key);
@@ -893,9 +867,8 @@ namespace RPI {
     }
 
     static void
-    generate_wep_key(char *key, size_t len)
-    {
-        int         i;
+    generate_wep_key(char *key, size_t len) {
+        int i;
         const char *hexdigits = "0123456789abcdef";
 
         g_return_if_fail(key);
@@ -905,7 +878,7 @@ namespace RPI {
         for (i = 0; i < 10; i++) {
             int digit;
 
-            digit  = nm_random_u64_range_full(0, 16, TRUE);
+            digit = nm_random_u64_range_full(0, 16, TRUE);
             key[i] = hexdigits[digit];
         }
         key[10] = '\0';
@@ -913,13 +886,11 @@ namespace RPI {
 
     static gboolean
     set_wireless_security_for_hotspot(NMSettingWirelessSecurity *s_wsec,
-                                      const char                *wifi_mode,
-                                      NMDeviceWifiCapabilities   caps,
+                                      const char *wifi_mode,
+                                      NMDeviceWifiCapabilities caps,
                                       const std::string &password,
-                                      gboolean                   show_password,
-                                      GError                   **error)
-    {
-        char        generated_key[20];
+                                      GError **error) {
+        char generated_key[20];
         const char *key;
         const char *key_mgmt;
 
@@ -982,28 +953,25 @@ namespace RPI {
                          NM_WEP_KEY_TYPE_KEY,
                          NULL);
         }
-        if (show_password)
-            spdlog::info(_("Hotspot password: {}\n"), key);
-
         return TRUE;
     }
 
 
     NMCResultCode do_device_wifi_hotspot(const std::string &interface_name, const std::string &ssid,
-                                              const std::string &password) {
+                                         const std::string &password) {
         GError *error = nullptr;
         const GPtrArray *connections;
         NMConnection *connection = nullptr;
         NMDevice *device;
         GBytes *ssid_bytes = nullptr;
-        NMSettingWirelessSecurity    *s_wsec = nullptr;
-        if(!ssid.empty()) {
+        NMSettingWirelessSecurity *s_wsec = nullptr;
+        if (!ssid.empty()) {
             ssid_bytes = g_bytes_new(ssid.c_str(), ssid.size());
         }
         NMDeviceWifiCapabilities caps;
-        const char* wifi_mode;
+        const char *wifi_mode;
         WifiConnectData data{
-            .return_value = NMC_RESULT_SUCCESS,
+                .return_value = NMC_RESULT_SUCCESS,
         };
         data.client = nm_client_new(nullptr, &error);
         if (error) {
@@ -1041,7 +1009,7 @@ namespace RPI {
 
         if (!password.empty() || !NM_IS_REMOTE_CONNECTION(connection)) {
             s_wsec = nm_connection_get_setting_wireless_security(connection);
-            if(s_wsec) {
+            if (!s_wsec) {
                 spdlog::error("Error: Can't get wireless security from connection.");
                 data.return_value = NMC_RESULT_ERROR_UNKNOWN;
                 goto out;
@@ -1050,7 +1018,6 @@ namespace RPI {
                                                    wifi_mode,
                                                    caps,
                                                    password,
-                                                   FALSE,
                                                    &error)) {
                 data.return_text = fmt::format(_("Error: Invalid 'password': {}."), error->message);
                 g_clear_error(&error);
@@ -1069,10 +1036,380 @@ namespace RPI {
         g_object_unref(connection);
         g_object_unref(data.client);
         g_bytes_unref(ssid_bytes);
-        g_error_free(error);
-        if(data.return_value != NMC_RESULT_SUCCESS) {
-            spdlog::error(data.return_text);
+        g_clear_error(&error);
+        if (data.return_value != NMC_RESULT_SUCCESS) {
+            spdlog::warn(data.return_text);
         }
         return data.return_value;
+    }
+
+    struct DoConnectionData {
+        NMClient *client;
+        NMConnection *connection{nullptr};
+        GMainLoop *loop{nullptr};
+        NMDevice *device{nullptr};
+        std::string return_text;
+        NMCResultCode return_value{NMC_RESULT_SUCCESS};
+        NMActiveConnection *active{nullptr};
+
+        void quite();
+    };
+
+    NMConnection *find_connection_by_id(NMDevice *device, const char *id) {
+        auto connections = nm_device_get_available_connections(device);
+        for (guint i = 0; i < connections->len; i++) {
+            auto conn = static_cast<NMConnection *>(g_ptr_array_index(connections, i));
+            auto conn_id = nm_connection_get_id(conn);
+            if (g_strcmp0(conn_id, id) == 0) {
+                return conn;
+            }
+        }
+        return nullptr;
+    }
+
+    static void
+    active_connection_hint(std::string &return_text, NMActiveConnection *active, NMDevice *device) {
+        NMRemoteConnection *connection;
+        nm_auto_free_gstring GString *hint = nullptr;
+        const GPtrArray *devices;
+        guint i;
+
+        if (!active)
+            return;
+
+        connection = nm_active_connection_get_connection(active);
+        g_return_if_fail(connection);
+
+        hint = g_string_new("journalctl -xe ");
+        g_string_append_printf(hint,
+                               "NM_CONNECTION=%s",
+                               nm_connection_get_uuid(NM_CONNECTION(connection)));
+
+        if (device)
+            g_string_append_printf(hint, " + NM_DEVICE=%s", nm_device_get_iface(device));
+        else {
+            devices = nm_active_connection_get_devices(active);
+            for (i = 0; i < devices->len; i++) {
+                g_string_append_printf(hint,
+                                       " + NM_DEVICE=%s",
+                                       nm_device_get_iface(NM_DEVICE(g_ptr_array_index(devices, i))));
+            }
+        }
+        return_text.append("\n").append(fmt::format(_("Hint: use '{}' to get more details."), hint->str));
+    }
+
+    static void
+    check_activated(DoConnectionData *info) {
+        NMActiveConnectionState ac_state;
+        const char *reason = NULL;
+
+        ac_state = nmc_activation_get_effective_state(info->active, info->device, &reason);
+        switch (ac_state) {
+            case NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
+                if (reason) {
+                    spdlog::info(_("Connection successfully activated ({}) (D-Bus active path: {})\n"),
+                                 reason,
+                                 nm_object_get_path(NM_OBJECT(info->active)));
+                } else {
+                    spdlog::info(_("Connection successfully activated (D-Bus active path: {})\n"),
+                                 nm_object_get_path(NM_OBJECT(info->active)));
+                }
+                info->quite();
+                break;
+            case NM_ACTIVE_CONNECTION_STATE_DEACTIVATED:
+                nm_assert(reason);
+                info->return_text = fmt::format(_("Error: Connection activation failed: {}"), reason);
+                if (nm_device_get_state_reason(info->device) == NM_DEVICE_STATE_REASON_NO_SECRETS) {
+                    info->return_value = NMC_RESULT_ERROR_CON_REQUIRE_SECRET;
+                } else {
+                    info->return_value = NMC_RESULT_ERROR_CON_ACTIVATION;
+                }
+                active_connection_hint(info->return_text, info->active, info->device);
+                info->quite();
+                break;
+            case NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
+                break;
+            default:
+                break;
+        }
+    }
+
+    static void
+    active_connection_state_cb(NMActiveConnection *active,
+                               NMActiveConnectionState state,
+                               NMActiveConnectionStateReason reason,
+                               DoConnectionData *info) {
+        check_activated(info);
+    }
+
+    static void
+    device_state_cb(NMDevice *device, GParamSpec *pspec, DoConnectionData *info) {
+        check_activated(info);
+    }
+
+    void DoConnectionData::quite() {
+        g_object_unref(active);
+        if (device) {
+            g_signal_handlers_disconnect_by_func(device, (gpointer) (device_state_cb), this);
+        }
+
+        if (active) {
+            g_signal_handlers_disconnect_by_func(active, (gpointer) (active_connection_state_cb), this);
+        }
+        g_main_loop_quit(loop);
+    }
+
+    static void
+    activate_connection_cb(GObject *client, GAsyncResult *result, gpointer user_data) {
+        auto info = (DoConnectionData *) user_data;
+        GError *error = nullptr;
+        info->active = nm_client_activate_connection_finish(NM_CLIENT(client), result, &error);
+        if (error) {
+            info->return_text = fmt::format(_("Error: Connection activation failed: {}"), error->message);
+            g_error_free(error);
+            info->return_value = NMC_RESULT_ERROR_CON_ACTIVATION;
+            info->quite();
+        } else {
+            auto state = nm_active_connection_get_state(info->active);
+            if (state == NM_ACTIVE_CONNECTION_STATE_ACTIVATED) {
+                spdlog::info(_("Connection successfully activated (D-Bus active path: {})"),
+                             nm_object_get_path(NM_OBJECT(info->active)));
+                info->quite();
+            } else if (state == NM_ACTIVE_CONNECTION_STATE_DEACTIVATED) {
+                auto dev_reason = nm_device_get_state_reason(info->device);
+                info->return_text = fmt::format(_("Error: Connection activation failed: {}"),
+                                                nmc_device_reason_to_string(dev_reason));
+                if (dev_reason == NM_DEVICE_STATE_REASON_NO_SECRETS) {
+                    info->return_value = NMC_RESULT_ERROR_CON_REQUIRE_SECRET;
+                } else {
+                    info->return_value = NMC_RESULT_ERROR_CON_ACTIVATION;
+                }
+                info->quite();
+            } else if (state == NM_ACTIVE_CONNECTION_STATE_ACTIVATING) {
+                /* Monitor the active connection and device (if available) states */
+                g_signal_connect(info->active, "state-changed", G_CALLBACK(active_connection_state_cb), info);
+                if (info->device)
+                    g_signal_connect(info->device,
+                                     "notify::" NM_DEVICE_STATE,
+                                     G_CALLBACK(device_state_cb),
+                                     info);
+                /* Both active_connection_state_cb () and device_state_cb () will just
+                 * call check_activated (info). So, just call it once directly after
+                 * connecting on both the signals of the objects and skip the call to
+                 * the callbacks.
+                 */
+                check_activated(info);
+            }
+        }
+    }
+
+    NMCResultCode do_connection_up(const std::string &interface_name, const std::string &id) {
+        DoConnectionData data{
+                .client = nm_client_new(nullptr, nullptr),
+                .connection = nullptr,
+                .loop = g_main_loop_new(nullptr, FALSE),
+                .return_value = NMC_RESULT_SUCCESS,
+        };
+        const char *spec_object;
+        if (!data.client) {
+            data.return_text = _("Error creating NMClient");
+            data.return_value = NMC_RESULT_ERROR_UNKNOWN;
+            goto out;
+        }
+        data.device = nm_client_get_device_by_iface(data.client, interface_name.c_str());
+        if (!data.device) {
+            data.return_text = fmt::format("Error: Device '{}' not found.", interface_name);
+            data.return_value = NMC_RESULT_ERROR_NOT_FOUND;
+            goto out;
+        }
+        data.connection = find_connection_by_id(data.device, id.c_str());
+        if (!data.connection) {
+            data.return_text = fmt::format("Error: Connection '{}' not found.", id);
+            data.return_value = NMC_RESULT_ERROR_NOT_FOUND;
+            goto out;
+        }
+        spec_object = nm_object_get_path(NM_OBJECT(data.connection));
+        if (!spec_object) {
+            data.return_text = fmt::format("Error: Can't get object path for connection '{}'.", id);
+            data.return_value = NMC_RESULT_ERROR_UNKNOWN;
+            goto out;
+        }
+        nm_client_activate_connection_async(data.client, data.connection, data.device, spec_object, nullptr,
+                                            activate_connection_cb, &data);
+        g_main_loop_run(data.loop);
+        out:
+        g_object_unref(data.client);
+        g_main_loop_unref(data.loop);
+        if (data.return_value != NMC_RESULT_SUCCESS) {
+            spdlog::warn(data.return_text);
+        }
+        return data.return_value;
+    }
+
+    NMCResultCode do_connection_down(const std::string &interface_name, const std::string &conn_id) {
+        auto client = nm_client_new(nullptr, nullptr);
+        if (!client) {
+            spdlog::warn("Error creating NMClient");
+            return NMC_RESULT_ERROR_UNKNOWN;
+        }
+        NMCResultCode ret = NMC_RESULT_SUCCESS;
+        NMActiveConnection *conn;
+        NMRemoteConnection *remote_conn;
+        GError *error = nullptr;
+        const char *cur_conn_id;
+        auto device = nm_client_get_device_by_iface(client, interface_name.c_str());
+        if (!device) {
+            spdlog::warn("Error: Device '{}' not found.", interface_name);
+            goto out;
+        }
+        conn = nm_device_get_active_connection(device);
+        if (!conn) {
+            spdlog::warn("Error: No active connection found for device '{}'.", interface_name);
+            goto out;
+        }
+        cur_conn_id = nm_active_connection_get_id(conn);
+        if (g_strcmp0(cur_conn_id, conn_id.c_str())) {
+            spdlog::warn("Error: Connection '{}' does not match bssid '{}'.", conn_id, cur_conn_id);
+            goto out;
+        }
+        if (nm_client_deactivate_connection(client, conn, nullptr, &error)) {
+            spdlog::info("Connection successfully deactivated.");
+        } else {
+            spdlog::warn("Error: Connection deactivation failed: {}", error->message);
+            ret = NMC_RESULT_ERROR_CON_DEACTIVATION;
+        }
+        out:
+        g_object_unref(client);
+        g_error_free(error);
+        return ret;
+    }
+
+    static void
+    delete_cb(GObject *con, GAsyncResult *result, gpointer user_data) {
+        auto info = (DoConnectionData *) user_data;
+        GError *error = nullptr;
+
+        if (!nm_remote_connection_delete_finish(NM_REMOTE_CONNECTION(con), result, &error)) {
+            if (g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+                return;
+            info->return_text = _("Error: not all connections deleted.");
+            spdlog::warn(_("Error: Connection deletion failed: %s"), error->message);
+            g_error_free(error);
+            info->return_value = NMC_RESULT_ERROR_CON_DEL;
+        }
+        info->quite();
+    }
+
+    NMCResultCode do_connection_delete(const std::string &interface_name, const std::string &conn_id) {
+        DoConnectionData data{
+                .client = nm_client_new(nullptr, nullptr),
+                .connection = nullptr,
+                .loop = g_main_loop_new(nullptr, FALSE),
+        };
+        if (!data.client) {
+            data.return_text = _("Error creating NMClient");
+            data.return_value = NMC_RESULT_ERROR_UNKNOWN;
+            goto out;
+        }
+        data.device = nm_client_get_device_by_iface(data.client, interface_name.c_str());
+        if (!data.device) {
+            spdlog::warn("Error: Device '{}' not found.", interface_name);
+            goto out;
+        }
+        data.connection = find_connection_by_id(data.device, conn_id.c_str());
+        if (!data.connection) {
+            spdlog::warn("Error: Connection '{}' not found.", conn_id);
+            goto out;
+        }
+        nm_remote_connection_delete_async(NM_REMOTE_CONNECTION(data.connection), nullptr, delete_cb, &data);
+        g_main_loop_run(data.loop);
+        out:
+        g_object_unref(data.client);
+        g_main_loop_unref(data.loop);
+        return data.return_value;
+    }
+
+    static std::list<ConnectionInfo> get_connections_list(const GPtrArray *conn_list) {
+        std::list<ConnectionInfo> ret;
+        for (guint i = 0; i < conn_list->len; i++) {
+            auto conn = static_cast<NMConnection *>(g_ptr_array_index(conn_list, i));
+            ConnectionInfo info;
+            info.id = cStr(nm_connection_get_id(conn));
+            auto setting = nm_connection_get_setting_wireless(conn);
+            if (!setting) {
+                continue;
+            }
+            info.bssid = cStr(nm_setting_wireless_get_bssid(setting));
+            info.ssid = gBytesToStr(nm_setting_wireless_get_ssid(setting));
+            ret.push_back(info);
+        }
+        return ret;
+    }
+
+    std::list<ConnectionInfo> get_connections() {
+        auto client = nm_client_new(nullptr, nullptr);
+        const GPtrArray *conn_list;
+        if (!client) {
+            spdlog::warn("Error creating NMClient");
+            return {};
+        }
+        conn_list = nm_client_get_connections(client);
+        auto ret = get_connections_list(conn_list);
+        g_object_unref(client);
+        return ret;
+    }
+
+    ConnectionInfo *get_active_connection(const std::string &interface_name) {
+        auto client = nm_client_new(nullptr, nullptr);
+        const GPtrArray *conn_list;
+        if (!client) {
+            spdlog::warn("Error creating NMClient");
+            return nullptr;
+        }
+        auto device = nm_client_get_device_by_iface(client, interface_name.c_str());
+        if (!device) {
+            spdlog::warn("Error: Device '{}' not found.", interface_name);
+            g_object_unref(client);
+            return nullptr;
+        }
+        auto act_conn = nm_device_get_active_connection(device);
+        if (!act_conn) {
+            spdlog::warn("Error: No active connection found for device '{}'.", interface_name);
+            g_object_unref(client);
+            return nullptr;
+        }
+        auto r_conn = nm_active_connection_get_connection(act_conn);
+        if (!r_conn) {
+            spdlog::warn("Error: No connection found for active connection.");
+            g_object_unref(client);
+            return nullptr;
+        }
+        ConnectionInfo *info{nullptr};
+        auto conn = NM_CONNECTION(r_conn);
+        auto st = nm_connection_get_setting_wireless(conn);
+        if (st) {
+            info = new ConnectionInfo;
+            info->id = cStr(nm_active_connection_get_id(act_conn));
+            info->ssid = gBytesToStr(nm_setting_wireless_get_ssid(st));
+            info->bssid = cStr(nm_setting_wireless_get_bssid(st));
+        }
+        g_object_unref(client);
+        return info;
+    }
+
+    std::string gBytesToStr(GBytes *bytes) {
+        if (!bytes) {
+            return {};
+        }
+        gsize size{0};
+        auto data = g_bytes_get_data(bytes, &size);
+        return {(const char *) data, size};
+    }
+
+    std::string cStr(const char *str) {
+        if (str) {
+            return std::string(str);
+        }
+        return {};
     }
 }

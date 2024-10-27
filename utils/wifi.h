@@ -68,6 +68,9 @@ namespace RPI {
 
         /* --complete-args signals a file name may follow */
         NMC_RESULT_COMPLETE_FILE = 65,
+
+        /*Connect need password*/
+        NMC_RESULT_ERROR_CON_REQUIRE_SECRET = 66,
     };
 
     NMCResultCode exist_connect_wifi_ap(const std::string &interface_name, const std::string& bssid);
@@ -75,6 +78,28 @@ namespace RPI {
     NMCResultCode connect_wifi_ap(const std::string &interface_name, const std::string& bssid, const std::string& password, std::function<void(const char*)> state_callback);
 
     NMCResultCode do_device_wifi_hotspot(const std::string &interface_name, const std::string& ssid, const std::string& password);
+
+    NMCResultCode do_connection_up(const std::string &interface_name, const std::string& conn_id);
+
+    NMCResultCode do_connection_down(const std::string &interface_name, const std::string& conn_id);
+
+    NMCResultCode do_connection_delete(const std::string &interface_name, const std::string &conn_id);
+
+    NMConnection* find_connection_by_id(NMDevice *device, const char *id);
+
+    struct ConnectionInfo {
+        std::string id;
+        std::string bssid;
+        std::string ssid;
+    };
+
+    std::list<ConnectionInfo> get_connections();
+
+    ConnectionInfo* get_active_connection(const std::string &interface_name);
+
+    std::string gBytesToStr(GBytes *bytes);
+
+    std::string cStr(const char* str);
 }
 
 #endif //RASPBERRY_PI_OLED_PANEL_WIFI_H

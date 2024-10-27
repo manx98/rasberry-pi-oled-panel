@@ -1111,3 +1111,241 @@ nm_random_u64_range_full(guint64 begin, guint64 end, gboolean crypto_bytes)
     errno = bad_crypto_bytes ? EAGAIN : 0;
     return begin + (x % m);
 }
+
+static GError *
+_nm_client_new_error_nm_not_running(void)
+{
+    return g_error_new_literal(NM_CLIENT_ERROR,
+                               NM_CLIENT_ERROR_MANAGER_NOT_RUNNING,
+                               "NetworkManager is not running");
+}
+
+static GError *
+_nm_client_new_error_nm_not_cached(void)
+{
+    return g_error_new_literal(NM_CLIENT_ERROR,
+                               NM_CLIENT_ERROR_FAILED,
+                               "Object is no longer in the client cache");
+}
+
+static GVariant *
+_nm_client_dbus_call_sync(NMClient           *self,
+                          GCancellable       *cancellable,
+                          const char         *object_path,
+                          const char         *interface_name,
+                          const char         *method_name,
+                          GVariant           *parameters,
+                          const GVariantType *reply_type,
+                          GDBusCallFlags      flags,
+                          int                 timeout_msec,
+                          gboolean            strip_dbus_error,
+                          GError            **error)
+{
+    gs_unref_variant GVariant *ret = NULL;
+
+    nm_assert(!cancellable || G_IS_CANCELLABLE(cancellable));
+    nm_assert(!error || !*error);
+    nm_assert(object_path);
+    nm_assert(interface_name);
+    nm_assert(method_name);
+    nm_assert(parameters);
+    nm_assert(reply_type);
+
+    if (!self) {
+        nm_g_variant_unref_floating(parameters);
+        nm_g_set_error_take_lazy(error, _nm_client_new_error_nm_not_cached());
+        return NULL;
+    }
+    const char* name_owner = nm_client_get_dbus_name_owner(self);
+    if (!name_owner) {
+        nm_g_variant_unref_floating(parameters);
+        nm_g_set_error_take_lazy(error, _nm_client_new_error_nm_not_running());
+        return NULL;
+    }
+    GDBusConnection* dbus_connection = nm_client_get_dbus_connection(self);
+    ret = g_dbus_connection_call_sync(dbus_connection,
+                                      name_owner,
+                                      object_path,
+                                      interface_name,
+                                      method_name,
+                                      parameters,
+                                      reply_type,
+                                      flags,
+                                      timeout_msec,
+                                      cancellable,
+                                      error);
+    if (!ret) {
+        if (error && strip_dbus_error)
+            g_dbus_error_strip_remote_error(*error);
+        return NULL;
+    }
+
+    return g_steal_pointer(&ret);
+}
+
+
+gboolean
+_nm_client_dbus_call_sync_void(NMClient      *self,
+                               GCancellable  *cancellable,
+                               const char    *object_path,
+                               const char    *interface_name,
+                               const char    *method_name,
+                               GVariant      *parameters,
+                               GDBusCallFlags flags,
+                               int            timeout_msec,
+                               gboolean       strip_dbus_error,
+                               GError       **error)
+{
+    gs_unref_variant GVariant *ret = NULL;
+
+    ret = _nm_client_dbus_call_sync(self,
+                                    cancellable,
+                                    object_path,
+                                    interface_name,
+                                    method_name,
+                                    parameters,
+                                    G_VARIANT_TYPE("()"),
+                                    flags,
+                                    timeout_msec,
+                                    strip_dbus_error,
+                                    error);
+    return !!ret;
+}
+
+/**
+ * nm_client_deactivate_connection:
+ * @client: a #NMClient
+ * @active: the #NMActiveConnection to deactivate
+ * @cancellable: a #GCancellable, or %NULL
+ * @error: location for a #GError, or %NULL
+ *
+ * Deactivates an active #NMActiveConnection.
+ *
+ * Returns: success or failure
+ *
+ * Deprecated: 1.22: Use nm_client_deactivate_connection_async() or GDBusConnection.
+ **/
+gboolean
+nm_client_deactivate_connection(NMClient           *client,
+                                NMActiveConnection *active,
+                                GCancellable       *cancellable,
+                                GError            **error)
+{
+    const char *active_path;
+
+    g_return_val_if_fail(NM_IS_CLIENT(client), FALSE);
+    g_return_val_if_fail(NM_IS_ACTIVE_CONNECTION(active), FALSE);
+
+    active_path = nm_object_get_path(NM_OBJECT(active));
+    g_return_val_if_fail(active_path, FALSE);
+
+    return _nm_client_dbus_call_sync_void(client,
+                                          cancellable,
+                                          NM_DBUS_PATH,
+                                          NM_DBUS_INTERFACE,
+                                          "DeactivateConnection",
+                                          g_variant_new("(o)", active_path),
+                                          G_DBUS_CALL_FLAGS_NONE,
+                                          NM_DBUS_DEFAULT_TIMEOUT_MSEC,
+                                          TRUE,
+                                          error);
+}
+
+const char * nm_active_connection_state_reason_to_string(NMActiveConnectionStateReason value){
+    switch (value) {
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_UNKNOWN, N_("Unknown reason"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_NONE,
+                             N_("The connection was disconnected"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_USER_DISCONNECTED,
+                             N_("Disconnected by user"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_DEVICE_DISCONNECTED,
+                             N_("The base network connection was interrupted"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_SERVICE_STOPPED,
+                             N_("The VPN service stopped unexpectedly"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_IP_CONFIG_INVALID,
+                             N_("The VPN service returned invalid configuration"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_CONNECT_TIMEOUT,
+                             N_("The connection attempt timed out"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_SERVICE_START_TIMEOUT,
+                             N_("The VPN service did not start in time"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_SERVICE_START_FAILED,
+                             N_("The VPN service failed to start"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_NO_SECRETS, N_("No valid secrets"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_LOGIN_FAILED, N_("Invalid secrets"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_CONNECTION_REMOVED,
+                             N_("The connection was removed"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_DEPENDENCY_FAILED,
+                             N_("Master connection failed"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_DEVICE_REALIZE_FAILED,
+                             N_("Could not create a software link"))
+        NM_UTILS_LOOKUP_ITEM(NM_ACTIVE_CONNECTION_STATE_REASON_DEVICE_REMOVED,
+                             N_("The device disappeared"))
+    }
+    /* TRANSLATORS: Unknown reason for a connection state change (NMActiveConnectionStateReason) */
+    NM_UTILS_LOOKUP_DEFAULT(N_("Unknown"));
+}
+
+NMActiveConnectionState
+nmc_activation_get_effective_state(NMActiveConnection *active,
+                                   NMDevice           *device,
+                                   const char        **reason)
+{
+    NMActiveConnectionState       ac_state;
+    NMActiveConnectionStateReason ac_reason;
+    NMDeviceState                 dev_state  = NM_DEVICE_STATE_UNKNOWN;
+    NMDeviceStateReason           dev_reason = NM_DEVICE_STATE_REASON_UNKNOWN;
+
+    g_return_val_if_fail(active, NM_ACTIVE_CONNECTION_STATE_UNKNOWN);
+    g_return_val_if_fail(reason, NM_ACTIVE_CONNECTION_STATE_UNKNOWN);
+
+    *reason   = NULL;
+    ac_reason = nm_active_connection_get_state_reason(active);
+
+    if (device) {
+        dev_state  = nm_device_get_state(device);
+        dev_reason = nm_device_get_state_reason(device);
+    }
+
+    ac_state = nm_active_connection_get_state(active);
+    switch (ac_state) {
+        case NM_ACTIVE_CONNECTION_STATE_DEACTIVATED:
+            if (!device || ac_reason != NM_ACTIVE_CONNECTION_STATE_REASON_DEVICE_DISCONNECTED
+                || nm_device_get_active_connection(device) != active) {
+                /* (1)
+                 * - we have no device,
+                 * - or, @ac_reason is specific
+                 * - or, @device no longer references the current @active
+                 * >> we complete with @ac_reason. */
+                *reason = nm_active_connection_state_reason_to_string(ac_reason);
+            } else if (dev_state <= NM_DEVICE_STATE_DISCONNECTED
+                       || dev_state >= NM_DEVICE_STATE_FAILED) {
+                /* (2)
+                 * - not (1)
+                 * - and, the device is no longer in an activated state,
+                 * >> we complete with @dev_reason. */
+                *reason = nmc_device_reason_to_string(dev_reason);
+            } else {
+                /* (3)
+                 * we wait for the device go disconnect. We will get a better
+                 * failure reason from the device (2). */
+                return NM_ACTIVE_CONNECTION_STATE_UNKNOWN;
+            }
+            break;
+        case NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
+            /* activating controller connection does not automatically activate any ports, so their
+             * active connection state will not progress beyond ACTIVATING state.
+             * Monitor the device instead. */
+            if (device
+                && (NM_IS_DEVICE_BOND(device) || NM_IS_DEVICE_TEAM(device)
+                    || NM_IS_DEVICE_BRIDGE(device))
+                && dev_state >= NM_DEVICE_STATE_IP_CONFIG && dev_state <= NM_DEVICE_STATE_ACTIVATED) {
+                *reason = "controller waiting for ports";
+                return NM_ACTIVE_CONNECTION_STATE_ACTIVATED;
+            }
+            break;
+        default:
+            break;
+    }
+
+    return ac_state;
+}

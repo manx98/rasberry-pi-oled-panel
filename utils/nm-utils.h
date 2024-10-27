@@ -478,6 +478,191 @@ NM_AUTO_DEFINE_FCN_VOID0(GMutex *, _nm_auto_unlock_g_mutex, g_mutex_unlock);
  * which has a possibly unexpected non-function-like behavior.
  * Use NM_IN_SET_SE if you need all arguments to be evaluated. */
 #define NM_IN_SET(x, ...) _NM_IN_SET(NM_UNIQ, ||, typeof(x), x, __VA_ARGS__)
+
+/*****************************************************************************/
+
+/* Historically, our cleanup macros come from a long gone library
+ * libgsystem, hence the "gs_" prefix. We still keep using them,
+ * although maybe we should drop them and use our respective nm_auto*
+ * macros (TODO).
+ *
+ * GLib also has g_auto() since 2.44. First of all, we still don't
+ * depend on 2.44, so we would have add compat implementations to
+ * "nm-glib.h" or bump the version.
+ * Also, they work differently (nm_auto_unref_hashtable vs g_auto(GHashTable)).
+ * If we were to switch to g_auto(), the change would be slightly more complicated
+ * than replacing one macro with another (but still easy).
+ * However, the reason for using our nm_auto* macros is that we also want cleanup
+ * macros in libnm-std-aux, which has no glib dependency. So we still would have
+ * some nm_auto* macros mixed with g_auto(). Instead, we consistently use
+ * nm_auto* macros (and the gs_* aliases).
+ *
+ * Note that c-stdaux also brings cleanup macros like _c_cleanup_(c_freep).
+ * We use c-stdaux like a proper internal library, so we could instead switch
+ * from nm_auto* macros to _c_cleanup_(). Unlike glib, c-stdaux is used by
+ * libnm-std-aux. Again, _c_cleanup_ follows a different pattern both from
+ * nm_auto* and g_auto(). */
+#define gs_free            nm_auto_g_free
+#define gs_unref_object    nm_auto_unref_object
+#define gs_unref_variant   nm_auto_unref_variant
+#define gs_unref_array     nm_auto_unref_array
+#define gs_unref_ptrarray  nm_auto_unref_ptrarray
+#define gs_unref_hashtable nm_auto_unref_hashtable
+#define gs_unref_bytes     nm_auto_unref_bytes
+#define gs_strfreev        nm_auto_strfreev
+#define gs_free_error      nm_auto_free_error
+
+/*****************************************************************************/
+
+NM_AUTO_DEFINE_FCN_VOID0(void *, _nm_auto_g_free, g_free);
+#define nm_auto_g_free nm_auto(_nm_auto_g_free)
+
+NM_AUTO_DEFINE_FCN_VOID0(GObject *, _nm_auto_unref_object, g_object_unref);
+#define nm_auto_unref_object nm_auto(_nm_auto_unref_object)
+
+NM_AUTO_DEFINE_FCN0(GVariant *, _nm_auto_unref_variant, g_variant_unref);
+#define nm_auto_unref_variant nm_auto(_nm_auto_unref_variant)
+
+NM_AUTO_DEFINE_FCN0(GArray *, _nm_auto_unref_array, g_array_unref);
+#define nm_auto_unref_array nm_auto(_nm_auto_unref_array)
+
+NM_AUTO_DEFINE_FCN0(GPtrArray *, _nm_auto_unref_ptrarray, g_ptr_array_unref);
+#define nm_auto_unref_ptrarray nm_auto(_nm_auto_unref_ptrarray)
+
+NM_AUTO_DEFINE_FCN0(GHashTable *, _nm_auto_unref_hashtable, g_hash_table_unref);
+#define nm_auto_unref_hashtable nm_auto(_nm_auto_unref_hashtable)
+
+NM_AUTO_DEFINE_FCN0(GSList *, _nm_auto_free_slist, g_slist_free);
+#define nm_auto_free_slist nm_auto(_nm_auto_free_slist)
+
+NM_AUTO_DEFINE_FCN0(GBytes *, _nm_auto_unref_bytes, g_bytes_unref);
+#define nm_auto_unref_bytes nm_auto(_nm_auto_unref_bytes)
+
+NM_AUTO_DEFINE_FCN0(char **, _nm_auto_strfreev, g_strfreev);
+#define nm_auto_strfreev nm_auto(_nm_auto_strfreev)
+
+NM_AUTO_DEFINE_FCN0(GError *, _nm_auto_free_error, g_error_free);
+#define nm_auto_free_error nm_auto(_nm_auto_free_error)
+
+NM_AUTO_DEFINE_FCN0(GKeyFile *, _nm_auto_unref_keyfile, g_key_file_unref);
+#define nm_auto_unref_keyfile nm_auto(_nm_auto_unref_keyfile)
+
+NM_AUTO_DEFINE_FCN0(GVariantIter *, _nm_auto_free_variant_iter, g_variant_iter_free);
+#define nm_auto_free_variant_iter nm_auto(_nm_auto_free_variant_iter)
+
+NM_AUTO_DEFINE_FCN0(GVariantBuilder *, _nm_auto_unref_variant_builder, g_variant_builder_unref);
+#define nm_auto_unref_variant_builder nm_auto(_nm_auto_unref_variant_builder)
+
+#define nm_auto_clear_variant_builder nm_auto(g_variant_builder_clear)
+
+NM_AUTO_DEFINE_FCN0(GList *, _nm_auto_free_list, g_list_free);
+#define nm_auto_free_list nm_auto(_nm_auto_free_list)
+
+#define nm_auto_unset_gvalue nm_auto(g_value_unset)
+
+NM_AUTO_DEFINE_FCN_VOID0(void *, _nm_auto_unref_gtypeclass, g_type_class_unref);
+#define nm_auto_unref_gtypeclass nm_auto(_nm_auto_unref_gtypeclass)
+
+NM_AUTO_DEFINE_FCN0(GByteArray *, _nm_auto_unref_bytearray, g_byte_array_unref);
+#define nm_auto_unref_bytearray nm_auto(_nm_auto_unref_bytearray)
+
+NM_AUTO_DEFINE_FCN0(GDateTime *, _nm_auto_unref_gdatetime, g_date_time_unref);
+#define nm_auto_unref_gdatetime nm_auto(_nm_auto_unref_gdatetime)
+
+static inline void
+_nm_auto_free_gstring(GString **str)
+{
+    if (*str)
+        g_string_free(*str, TRUE);
+}
+#define nm_auto_free_gstring nm_auto(_nm_auto_free_gstring)
+
+NM_AUTO_DEFINE_FCN0(GSource *, _nm_auto_unref_gsource, g_source_unref);
+#define nm_auto_unref_gsource nm_auto(_nm_auto_unref_gsource)
+
+NM_AUTO_DEFINE_FCN0(guint, _nm_auto_remove_source, g_source_remove);
+#define nm_auto_remove_source nm_auto(_nm_auto_remove_source)
+
+NM_AUTO_DEFINE_FCN0(GIOChannel *, _nm_auto_unref_io_channel, g_io_channel_unref);
+#define nm_auto_unref_io_channel nm_auto(_nm_auto_unref_io_channel)
+
+NM_AUTO_DEFINE_FCN0(GMainLoop *, _nm_auto_unref_gmainloop, g_main_loop_unref);
+#define nm_auto_unref_gmainloop nm_auto(_nm_auto_unref_gmainloop)
+
+NM_AUTO_DEFINE_FCN0(GOptionContext *, _nm_auto_free_option_context, g_option_context_free);
+#define nm_auto_free_option_context nm_auto(_nm_auto_free_option_context)
+
+static inline void
+_nm_auto_freev(gpointer ptr)
+{
+    gpointer **p = (gpointer **)ptr;
+    gpointer  *_ptr;
+
+    if (*p) {
+        for (_ptr = *p; *_ptr; _ptr++)
+            g_free(*_ptr);
+        g_free(*p);
+    }
+}
+/* g_free a NULL terminated array of pointers, with also freeing each
+ * pointer with g_free(). It essentially does the same as
+ * gs_strfreev / g_strfreev(), but not restricted to strv arrays. */
+#define nm_auto_freev nm_auto(_nm_auto_freev)
+
+#define NM_DBUS_DEFAULT_TIMEOUT_MSEC 25000
+
+static inline void
+nm_g_variant_unref_floating(GVariant *var)
+{
+    /* often a function wants to keep a reference to an input variant.
+     * It uses g_variant_ref_sink() to either increase the ref-count,
+     * or take ownership of a possibly floating reference.
+     *
+     * If the function doesn't actually want to do anything with the
+     * input variant, it still must make sure that a passed in floating
+     * reference is consumed. Hence, this helper which:
+     *
+     *   - does nothing if @var is not floating
+     *   - unrefs (consumes) @var if it is floating. */
+    if (g_variant_is_floating(var))
+        g_variant_unref(var);
+}
+
+static inline void
+nm_g_set_error_take(GError **error, GError *error_take)
+{
+    if (!error_take)
+        g_return_if_reached();
+    if (!error) {
+        g_error_free(error_take);
+        return;
+    }
+    if (*error) {
+        g_error_free(error_take);
+        g_return_if_reached();
+    }
+    *error = error_take;
+}
+
+#define nm_g_set_error_take_lazy(error, error_take_lazy)    \
+    {                                                       \
+        GError **_error = (error);                          \
+                                                            \
+        if (_error)                                         \
+            nm_g_set_error_take(_error, (error_take_lazy)); \
+    }
+
+gboolean
+nm_client_deactivate_connection(NMClient           *client,
+                                NMActiveConnection *active,
+                                GCancellable       *cancellable,
+                                GError            **error);
+
+
+NMActiveConnectionState
+nmc_activation_get_effective_state(NMActiveConnection *active,
+                                   NMDevice           *device,
+                                   const char        **reason);
 #ifdef __cplusplus
 }
 #endif
