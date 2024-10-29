@@ -1,5 +1,5 @@
-#ifndef RASPBERRY_PI_OLED_PANEL_UTILS_H
-#define RASPBERRY_PI_OLED_PANEL_UTILS_H
+#ifndef RASPBERRY_PI_OLED_PANEL_UTILS_UTILS_H
+#define RASPBERRY_PI_OLED_PANEL_UTILS_UTILS_H
 
 #include <list>
 #include <string>
@@ -7,15 +7,6 @@
 #include "wifi.h"
 
 namespace RPI {
-
-    struct WifiConnectInfo {
-        std::string BSS;
-        std::string SSID;
-        int64_t RX;
-        int64_t TX;
-        float signal;
-    };
-
     bool setIpLinkUp(const char* interface_name, bool up);
 
     struct NetworkInfo {
@@ -59,4 +50,4 @@ namespace RPI {
 
     int64_t getUnixMill();
 }
-#endif //RASPBERRY_PI_OLED_PANEL_UTILS_H
+#endif //RASPBERRY_PI_OLED_PANEL_UTILS_UTILS_H

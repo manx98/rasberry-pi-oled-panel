@@ -34,6 +34,12 @@ add_executable(${PROJECT_NAME} panel/main.cpp
         utils/nm-shared-utils.h
         utils/nm-utils.c
         utils/nm-utils.h
+        panel/wifi.cpp
+        panel/wifi.h
+        panel/system.cpp
+        panel/system.h
+        panel/network.cpp
+        panel/network.h
 )
 
 if(CMAKE_SYSROOT)

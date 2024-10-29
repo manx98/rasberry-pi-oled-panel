@@ -2,8 +2,8 @@
 // Created by wenyiyu on 2024/10/17.
 //
 
-#ifndef RASPBERRY_PI_OLED_PANEL_WIFI_H
-#define RASPBERRY_PI_OLED_PANEL_WIFI_H
+#ifndef RASPBERRY_PI_OLED_UTILS_WIFI_H
+#define RASPBERRY_PI_OLED_UTILS_WIFI_H
 #include <libnm/NetworkManager.h>
 #include <list>
 #include <string>
@@ -21,6 +21,13 @@ namespace RPI {
         std::string SSID;
         guint8 strength;
         guint32 frequency;
+    };
+    struct WifiConnectInfo {
+        std::string BSS;
+        std::string SSID;
+        int64_t RX;
+        int64_t TX;
+        float signal;
     };
     void wifi_list_rescan_cb(GObject *source_object, GAsyncResult *res, gpointer user_data);
 
@@ -102,4 +109,4 @@ namespace RPI {
     std::string cStr(const char* str);
 }
 
-#endif //RASPBERRY_PI_OLED_PANEL_WIFI_H
+#endif //RASPBERRY_PI_OLED_UTILS_WIFI_H
