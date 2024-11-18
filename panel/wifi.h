@@ -5,6 +5,7 @@
 #ifndef RASPBERRY_PI_OLED_PANEL_WIFI_H
 #define RASPBERRY_PI_OLED_PANEL_WIFI_H
 #include "astra/ui/launcher.h"
+#include "utils/wifi.h"
 
 class WifiScanListEvent : public astra::List::Event {
 private:
@@ -28,4 +29,17 @@ public:
     bool beforeRender(astra::Menu *current, const std::vector<float> &_camera, astra::Clocker &clocker) override;
 };
 
+class WifiOperationEvent : public astra::List::Event {
+private:
+    RPI::WifiInfo m_info;
+    std::string m_device_name;
+public:
+    WifiOperationEvent(const RPI::WifiInfo& _wifi, std::string device_name);
+
+    ~WifiOperationEvent() override = default;
+
+    bool beforeOpen(astra::Menu *current) override;
+
+    bool beforeRender(astra::Menu *current, const std::vector<float> &_camera, astra::Clocker &clocker) override;
+};
 #endif //RASPBERRY_PI_OLED_PANEL_WIFI_H

@@ -4,6 +4,7 @@
 
 #include <thread>
 #include <atomic>
+#include <utility>
 #include <spdlog/fmt/fmt.h>
 #include "text.h"
 #include "wifi.h"
@@ -24,13 +25,9 @@ bool WifiScanListEvent::beforeOpen(astra::Menu *current) {
         current->clear();
         auto font = astra::getUIConfig().mainFont;
         for (const auto &item: infos) {
-            current->addItem(new astra::List({1, {
-                    {item.SSID.empty() ? "--" : item.SSID, font},
-                    {fmt::format("{}({})", RPI::nmc_wifi_strength_bars(item.strength), item.strength),
-                     u8g2_font_6x12_t_symbols},
-                    {fmt::format("<{}> {} MHz", nm_utils_wifi_freq_to_channel(item.frequency), item.frequency),
-                     u8g2_font_tiny5_te},
-                    {fmt::format("BSS: {}", item.BSS), u8g2_font_tiny5_te}}}));
+            current->addItem(new astra::List(
+                    {0, {{fmt::format("[{:02d}] {}", item.strength, item.SSID.empty() ? "--" : item.SSID), font}}},
+                    new WifiOperationEvent(item, device_name_)));
         }
         finished = true;
     });
@@ -73,4 +70,22 @@ bool WifiDeviceEvent::beforeOpen(astra::Menu *current) {
 
 bool WifiDeviceEvent::beforeRender(astra::Menu *current, const std::vector<float> &_camera, astra::Clocker &clocker) {
     return true;
+}
+
+bool WifiOperationEvent::beforeOpen(astra::Menu *current) {
+    current->clear();
+    RPI::exist_connect_wifi_ap(m_device_name, m_info.BSS);
+    current->addItem(new astra::List({0, {{m_info.SSID, astra::getUIConfig().mainFont}}}));
+    current->addItem(new astra::List({0, {{fmt::format("<BSS> {}", m_info.BSS), u8g2_font_tiny5_te}}}));
+    current->addItem(new astra::List({0, {{fmt::format("<{}> {} MHz", nm_utils_wifi_freq_to_channel(m_info.frequency),
+                                                       m_info.frequency), u8g2_font_tiny5_te}}}));
+    return true;
+}
+
+bool
+WifiOperationEvent::beforeRender(astra::Menu *current, const std::vector<float> &_camera, astra::Clocker &clocker) {
+    return true;
+}
+
+WifiOperationEvent::WifiOperationEvent(const RPI::WifiInfo& _wifi, std::string device_name) : m_info(std::move(_wifi)), m_device_name(std::move(device_name)) {
 }
