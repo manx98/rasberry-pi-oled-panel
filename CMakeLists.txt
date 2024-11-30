@@ -64,7 +64,7 @@ check_symbol_exists(getrandom "<linux/random.h>" HAVE_GETRANDOM)
 
 # 设置预处理宏
 set(USE_SYS_RANDOM_H ${USE_SYS_RANDOM_H})
-if(${USE_SYS_RANDOM_H} OR ${HAVE_GETRANDOM})
+if("${USE_SYS_RANDOM_H}" STREQUAL "1" OR "${HAVE_GETRANDOM}" STREQUAL "1")
     set(HAVE_GETRANDOM 1)
 else ()
     set(HAVE_GETRANDOM 0)

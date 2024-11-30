@@ -80,9 +80,7 @@ namespace RPI {
         NMC_RESULT_ERROR_CON_REQUIRE_SECRET = 66,
     };
 
-    NMCResultCode exist_connect_wifi_ap(const std::string &interface_name, const std::string& bssid);
-
-    NMCResultCode connect_wifi_ap(const std::string &interface_name, const std::string& bssid, const std::string& password, std::function<void(const char*)> state_callback);
+    NMCResultCode connect_wifi_ap(const std::string &interface_name, bool hidden, const char* bssid, const char* ssid, const std::string& password, std::function<void(const char*)> state_callback);
 
     NMCResultCode do_device_wifi_hotspot(const std::string &interface_name, const std::string& ssid, const std::string& password);
 

@@ -74,7 +74,6 @@ bool WifiDeviceEvent::beforeRender(astra::Menu *current, const std::vector<float
 
 bool WifiOperationEvent::beforeOpen(astra::Menu *current) {
     current->clear();
-    RPI::exist_connect_wifi_ap(m_device_name, m_info.BSS);
     current->addItem(new astra::List({0, {{m_info.SSID, astra::getUIConfig().mainFont}}}));
     current->addItem(new astra::List({0, {{fmt::format("<BSS> {}", m_info.BSS), u8g2_font_tiny5_te}}}));
     current->addItem(new astra::List({0, {{fmt::format("<{}> {} MHz", nm_utils_wifi_freq_to_channel(m_info.frequency),

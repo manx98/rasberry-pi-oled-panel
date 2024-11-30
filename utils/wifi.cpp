@@ -175,6 +175,42 @@ namespace RPI {
         wifi_list_finish(wifi_list_data, force_finished);
     }
 
+    static std::list<WifiInfo> getWifiList(NMDevice *device) {
+        // 检查设备是否为 Wi-Fi 设备
+        if (!NM_IS_DEVICE_WIFI(device)) {
+            spdlog::error("Device {} is not a Wi-Fi device", nm_device_get_iface(device));
+            return {};
+        }
+        WifiScanData data{
+                .loop = g_main_loop_new(nullptr, FALSE),
+                .error = nullptr,
+                .rescan_cutoff_msec = nm_utils_get_timestamp_msec(),
+                .wifi = NM_DEVICE_WIFI(device),
+        };
+        auto timeout_msec = data.rescan_cutoff_msec <= _device_wifi_get_last_scan(data.wifi) ? 0 : 15000;
+        data.timeout_id = g_timeout_add(timeout_msec, wifi_list_scan_timeout, &data);
+        if (timeout_msec > 0) {
+            data.last_scan_id = g_signal_connect(data.wifi,
+                                                 "notify::" NM_DEVICE_WIFI_LAST_SCAN,
+                                                 G_CALLBACK(wifi_last_scan_updated),
+                                                 &data);
+            nm_device_wifi_request_scan_async(data.wifi, nullptr, on_wifi_scan_done, &data);
+            data.scan_cancellable = g_cancellable_new();
+            nm_device_wifi_request_scan_async(data.wifi,
+                                              data.scan_cancellable,
+                                              wifi_list_rescan_cb,
+                                              &data);
+        }
+        g_main_loop_run(data.loop);
+        g_main_loop_unref(data.loop);
+        if (data.error) {
+            spdlog::error("Error getting wifi list: {}", data.error->message);
+            g_error_free(data.error);
+            return {};
+        }
+        return data.result;
+    }
+
     std::list<WifiInfo> getWifiList(const std::string &interface_name) {
         GError *error = nullptr;
         // 创建 NetworkManager 客户端
@@ -191,42 +227,9 @@ namespace RPI {
             g_object_unref(client);
             return {};
         }
-        // 检查设备是否为 Wi-Fi 设备
-        if (!NM_IS_DEVICE_WIFI(device)) {
-            spdlog::error("Device {} is not a Wi-Fi device", interface_name);
-            g_object_unref(client);
-            g_object_unref(device);
-            return {};
-        }
-        WifiScanData data{
-                .loop = g_main_loop_new(nullptr, FALSE),
-                .error = nullptr,
-                .rescan_cutoff_msec = nm_utils_get_timestamp_msec(),
-                .wifi = NM_DEVICE_WIFI(device),
-        };
-        auto timeout_msec = data.rescan_cutoff_msec <= _device_wifi_get_last_scan(data.wifi) ? 0 : 15000;
-        data.timeout_id = g_timeout_add(timeout_msec, wifi_list_scan_timeout, &data);
-        if (timeout_msec > 0) {
-            data.last_scan_id = g_signal_connect(data.wifi,
-                                                 "notify::" NM_DEVICE_WIFI_LAST_SCAN,
-                                                 G_CALLBACK(wifi_last_scan_updated),
-                                                 &data),
-                    nm_device_wifi_request_scan_async(data.wifi, nullptr, on_wifi_scan_done, &data);
-            data.scan_cancellable = g_cancellable_new(),
-                    nm_device_wifi_request_scan_async(data.wifi,
-                                                      data.scan_cancellable,
-                                                      wifi_list_rescan_cb,
-                                                      &data);
-        }
-        g_main_loop_run(data.loop);
-        g_main_loop_unref(data.loop);
+        auto ret = getWifiList(device);
         g_object_unref(client);
-        if (data.error) {
-            spdlog::error("Error getting wifi list: {}", data.error->message);
-            g_error_free(data.error);
-            return {};
-        }
-        return data.result;
+        return ret;
     }
 
     std::list<NetWorkDeviceInfo> getWifiDevices() {
@@ -302,16 +305,16 @@ namespace RPI {
      * Returns: found AP or NULL
      */
     static NMAccessPoint *
-    find_ap_on_device(NMDevice *device, const char *bssid) {
+    find_ap_on_device(NMDevice *device, const char *bssid, const char *ssid, bool complete) {
         const GPtrArray *aps;
-        NMAccessPoint *ap = nullptr;
-        int i;
+        NMAccessPoint   *ap = NULL;
+        int              i;
 
         g_return_val_if_fail(NM_IS_DEVICE_WIFI(device), NULL);
-
+        getWifiList(device);
         aps = nm_device_wifi_get_access_points(NM_DEVICE_WIFI(device));
         for (i = 0; i < aps->len; i++) {
-            auto candidate_ap = (NMAccessPoint *) g_ptr_array_index(aps, i);
+            auto candidate_ap = (NMAccessPoint*) g_ptr_array_index(aps, i);
 
             if (bssid) {
                 const char *candidate_bssid = nm_access_point_get_bssid(candidate_ap);
@@ -319,9 +322,40 @@ namespace RPI {
                 if (!candidate_bssid)
                     continue;
 
-                if (strcmp(bssid, candidate_bssid) != 0)
+                /* Compare BSSIDs */
+                if (complete) {
+                    if (g_str_has_prefix(candidate_bssid, bssid))
+                        g_print("%s\n", candidate_bssid);
+                } else if (strcmp(bssid, candidate_bssid) != 0)
                     continue;
             }
+
+            if (ssid) {
+                /* Parameter is SSID */
+                GBytes *candidate_ssid;
+                char   *ssid_tmp;
+
+                candidate_ssid = nm_access_point_get_ssid(candidate_ap);
+                if (!candidate_ssid)
+                    continue;
+
+                ssid_tmp = nm_utils_ssid_to_utf8((const guint8 *)g_bytes_get_data(candidate_ssid, nullptr),
+                                                 g_bytes_get_size(candidate_ssid));
+
+                /* Compare SSIDs */
+                if (complete) {
+                    if (g_str_has_prefix(ssid_tmp, ssid))
+                        g_print("%s\n", ssid_tmp);
+                } else if (strcmp(ssid, ssid_tmp) != 0) {
+                    g_free(ssid_tmp);
+                    continue;
+                }
+                g_free(ssid_tmp);
+            }
+
+            if (complete)
+                continue;
+
             ap = candidate_ap;
             break;
         }
@@ -344,10 +378,18 @@ namespace RPI {
         const char *specific_object;
         /* Operation timeout */
         int timeout{90};
+        bool running{true};
 
         void quite() {
-            nm_clear_g_source(&progress_id);
-            g_main_loop_quit(loop);
+            if(running) {
+                if(loop) {
+                    g_main_loop_quit(loop);
+                }
+                if(progress_id) {
+                    nm_clear_g_source(&progress_id);
+                }
+                running = false;
+            }
         }
     };
 
@@ -412,11 +454,6 @@ namespace RPI {
     }
 
     static void
-    add_and_activate_info_free(WifiConnectData *info) {
-        g_clear_object(&info->active);
-    }
-
-    static void
     add_and_activate_check_state(WifiConnectData *info) {
         NMDeviceState state;
         NMDeviceStateReason reason;
@@ -447,7 +484,6 @@ namespace RPI {
         } else {
             return;
         }
-        add_and_activate_info_free(info);
         info->quite();
     }
 
@@ -540,7 +576,6 @@ namespace RPI {
                                             nullptr,
                                             add_and_activate_cb,
                                             info);
-        g_object_unref(ret);
     }
 
     static void
@@ -564,8 +599,14 @@ namespace RPI {
         }
     }
 
+    static inline GVariant *
+    nm_g_variant_new_ay(const guint8 *data, gsize len)
+    {
+        return g_variant_new_fixed_array(G_VARIANT_TYPE_BYTE, data, len, 1);
+    }
+
     NMCResultCode
-    connect_wifi_ap(const std::string &interface_name, const std::string &bssid, const std::string &password,
+    connect_wifi_ap(const std::string &interface_name, bool hidden, const char* bssid, const char* ssid, const std::string &password,
                     std::function<void(const char *)> state_callback) {
         GError *error = nullptr;
         NMAccessPoint *ap;
@@ -574,8 +615,10 @@ namespace RPI {
         NM80211ApFlags ap_flags;
         NM80211ApSecurityFlags ap_wpa_flags;
         NM80211ApSecurityFlags ap_rsn_flags;
-        GBytes *ssid = nullptr;
+        GBytes *g_ssid = nullptr;
         GBytes *bssid_bytes = nullptr;
+        std::string str_ssid;
+        NMSettingConnection* s_con;
         // 创建 NetworkManager 客户端
         NMClient *client = nm_client_new(nullptr, &error);
         WifiConnectData info{
@@ -595,15 +638,40 @@ namespace RPI {
             info.return_value = NMC_RESULT_ERROR_NOT_FOUND;
             goto out;
         }
-        ap = find_ap_on_device(info.device, bssid.c_str());
+
+        /* For hidden SSID first scan it so that NM learns about the AP */
+        if (hidden) {
+            GVariantBuilder builder, array_builder;
+            GVariant       *options;
+            GError         *scan_err = nullptr;
+
+            g_variant_builder_init(&builder, G_VARIANT_TYPE_VARDICT);
+            g_variant_builder_init(&array_builder, G_VARIANT_TYPE("aay"));
+            g_variant_builder_add(&array_builder,
+                                  "@ay",
+                                  nm_g_variant_new_ay((const guint8 *) ssid, strlen(ssid)));
+            g_variant_builder_add(&builder, "{sv}", "ssids", g_variant_builder_end(&array_builder));
+            options = g_variant_builder_end(&builder);
+
+            nm_device_wifi_request_scan_options(NM_DEVICE_WIFI(info.device), options, nullptr, &scan_err);
+            if (scan_err) {
+                info.return_text = fmt::format(_("Error: Failed to scan hidden SSID: {}."),
+                                               scan_err->message);
+                g_clear_error(&scan_err);
+                info.return_value = NMC_RESULT_ERROR_NOT_FOUND;
+                goto out;
+            }
+        }
+
+        ap = find_ap_on_device(info.device, bssid, ssid, false);
         if (!ap) {
-            spdlog::error("AP {} not found", bssid);
+            spdlog::error("AP not found, BSSID={}, SSID={}", bssid ? bssid : "", ssid ? ssid : "");
             info.return_value = NMC_RESULT_ERROR_NOT_FOUND;
             goto out;
         }
-        ssid = nm_access_point_get_ssid(ap);
-        if (ssid) {
-            ssid = g_bytes_ref(ssid);
+        g_ssid = nm_access_point_get_ssid(ap);
+        if (g_ssid) {
+            g_ssid = g_bytes_ref(g_ssid);
         }
         avail_cons = nm_device_get_available_connections(info.device);
         for (int i = 0; i < avail_cons->len; i++) {
@@ -624,18 +692,27 @@ namespace RPI {
             s_wifi = (NMSettingWireless *) nm_setting_wireless_new();
             nm_connection_add_setting(info.connection, NM_SETTING(s_wifi));
 
+            s_con = (NMSettingConnection *) nm_setting_connection_new();
+            nm_connection_add_setting(info.connection, NM_SETTING(s_con));
+
+            str_ssid = gBytesToStr(g_ssid);
+
+            /* Set user provided connection name */
+            g_object_set(s_con, NM_SETTING_CONNECTION_ID, str_ssid.c_str(), NULL);
+
             /* 'bssid' parameter is used to restrict the connection only to the BSSID */
-            g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid.c_str(), NULL);
+            if(bssid) {
+                g_object_set(s_wifi, NM_SETTING_WIRELESS_BSSID, bssid, NULL);
+            }
+
             /* 'hidden' parameter is used to indicate that SSID is not broadcasted */
-            if (!ssid) {
-                ssid = g_bytes_new(bssid.c_str(), bssid.length());
+            if (hidden) {
                 g_object_set(s_wifi,
                              NM_SETTING_WIRELESS_SSID,
-                             ssid,
+                             str_ssid.c_str(),
                              NM_SETTING_WIRELESS_HIDDEN,
                              TRUE,
                              NULL);
-                g_bytes_unref(ssid);
             }
         }
         /* handle password */
@@ -653,11 +730,8 @@ namespace RPI {
             NMSettingWirelessSecurity *s_wsec = nullptr;
 
             if (!password.empty()) {
-                if (!info.connection)
-                    info.connection = nm_simple_connection_new();
                 s_wsec = (NMSettingWirelessSecurity *) nm_setting_wireless_security_new();
                 nm_connection_add_setting(info.connection, NM_SETTING(s_wsec));
-
                 if (ap_wpa_flags == NM_802_11_AP_SEC_NONE && ap_rsn_flags == NM_802_11_AP_SEC_NONE) {
                     /* WEP */
                     nm_setting_wireless_security_set_wep_key(s_wsec, 0, password.c_str());
@@ -684,40 +758,12 @@ namespace RPI {
         out:
         g_object_unref(client);
         g_clear_error(&error);
-        g_bytes_unref(ssid);
+        g_bytes_unref(g_ssid);
         g_bytes_unref(bssid_bytes);
         if (info.return_value != NMC_RESULT_SUCCESS) {
             spdlog::warn(info.return_text);
         }
         return info.return_value;
-    }
-
-    NMCResultCode exist_connect_wifi_ap(const std::string &interface_name, const std::string &bssid) {
-        GError *error = nullptr;
-        NMDevice *device;
-        auto ret = NMC_RESULT_SUCCESS;
-        // 创建 NetworkManager 客户端
-        NMClient *client = nm_client_new(nullptr, &error);
-        if (error) {
-            spdlog::error("Error creating NMClient: {}", error->message);
-            ret = NMC_RESULT_ERROR_UNKNOWN;
-            goto out;
-        }
-        device = nm_client_get_device_by_iface(client, interface_name.c_str());
-        if (!device) {
-            spdlog::error("Device {} not found", interface_name);
-            ret = NMC_RESULT_ERROR_NOT_FOUND;
-            goto out;
-        }
-        if (!find_ap_on_device(device, bssid.c_str())) {
-            spdlog::error("AP {} not found", bssid);
-            ret = NMC_RESULT_ERROR_NOT_FOUND;
-            goto out;
-        }
-        out:
-        g_object_unref(client);
-        g_error_free(error);
-        return ret;
     }
 
     static NMConnection *
