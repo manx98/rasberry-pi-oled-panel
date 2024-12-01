@@ -3,10 +3,10 @@
 //
 #include "astra/hal/hal_dreamCore/hal_dreamCore.h"
 #include <csignal>
-#include <sys/time.h>
+#include <thread>
 
 void HALDreamCore::_delay(unsigned long _mill) {
-    usleep(_mill * 1000);
+    std::this_thread::sleep_for(std::chrono::milliseconds(_mill));
 }
 
 int64_t HALDreamCore::_millis() {

@@ -393,23 +393,6 @@ namespace RPI {
         }
     };
 
-    static const char *
-    _device_state_externally_to_string(NMDeviceState state) {
-        switch (state) {
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_PREPARE, N_("connecting (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_CONFIG, N_("connecting (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_NEED_AUTH, N_("connecting (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_IP_CONFIG, N_("connecting (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_IP_CHECK, N_("connecting (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_SECONDARIES, N_("connecting (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_ACTIVATED, N_("connected (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_DEACTIVATING, N_("deactivating (externally)"))
-            NM_UTILS_LOOKUP_ITEM(NM_DEVICE_STATE_FAILED, N_("deactivating (externally)"))
-            NM_UTILS_LOOKUP_ITEM_IGNORE_OTHER()
-        }
-        NM_UTILS_LOOKUP_DEFAULT(NULL);
-    }
-
     const char *
     nmc_device_state_to_string_with_external(NMDevice *device) {
         NMActiveConnection *ac;
@@ -417,12 +400,6 @@ namespace RPI {
         const char *s;
 
         state = nm_device_get_state(device);
-
-        if ((ac = nm_device_get_active_connection(device))
-            && NM_FLAGS_HAS(nm_active_connection_get_state_flags(ac), NM_ACTIVATION_STATE_FLAG_EXTERNAL)
-            && (s = _device_state_externally_to_string(state)))
-            return s;
-
         return nmc_device_state_to_string(state);
     }
 
@@ -537,7 +514,7 @@ namespace RPI {
             info->progress_id = g_timeout_add(120, progress_cb, info);
         }
 
-        info->active = g_steal_pointer(&active);
+        info->active = (NMActiveConnection *)g_steal_pointer(&active);
 
         g_signal_connect(info->device,
                          "notify::" NM_DEVICE_STATE,
@@ -606,8 +583,8 @@ namespace RPI {
     }
 
     NMCResultCode
-    connect_wifi_ap(const std::string &interface_name, bool hidden, const char* bssid, const char* ssid, const std::string &password,
-                    std::function<void(const char *)> state_callback) {
+    do_device_wifi_connect_network(const std::string &interface_name, bool hidden, const char* bssid, const char* ssid, const std::string &password,
+                                   std::function<void(const char *)> state_callback) {
         GError *error = nullptr;
         NMAccessPoint *ap;
         NMSettingWireless *s_wifi;
@@ -680,7 +657,7 @@ namespace RPI {
                 /* ap has been checked against bssid1, bssid2 and the ssid
                  * and now avail_con has been checked against ap.
                  */
-                info.connection = g_object_ref(avail_con);
+                info.connection = static_cast<NMConnection *>(g_object_ref(avail_con));
                 break;
             }
         }
@@ -720,13 +697,9 @@ namespace RPI {
         ap_wpa_flags = nm_access_point_get_wpa_flags(ap);
         ap_rsn_flags = nm_access_point_get_rsn_flags(ap);
         /* Set password for WEP or WPA-PSK. */
-        if ((ap_flags & NM_802_11_AP_FLAGS_PRIVACY)
-            || (ap_wpa_flags != NM_802_11_AP_SEC_NONE
-                && !NM_FLAGS_ANY(ap_wpa_flags,
-                                 NM_802_11_AP_SEC_KEY_MGMT_OWE | NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))
-            || (ap_rsn_flags != NM_802_11_AP_SEC_NONE
-                && !NM_FLAGS_ANY(ap_rsn_flags,
-                                 NM_802_11_AP_SEC_KEY_MGMT_OWE | NM_802_11_AP_SEC_KEY_MGMT_OWE_TM))) {
+        if (   (ap_flags & NM_802_11_AP_FLAGS_PRIVACY)
+               || ap_wpa_flags != NM_802_11_AP_SEC_NONE
+               || ap_rsn_flags != NM_802_11_AP_SEC_NONE) {
             NMSettingWirelessSecurity *s_wsec = nullptr;
 
             if (!password.empty()) {
@@ -739,9 +712,8 @@ namespace RPI {
                                  NM_SETTING_WIRELESS_SECURITY_WEP_KEY_TYPE,
                                  NM_WEP_KEY_TYPE_PASSPHRASE,
                                  NULL);
-                } else if ((ap_wpa_flags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
-                           || (ap_rsn_flags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
-                           || (ap_rsn_flags & NM_802_11_AP_SEC_KEY_MGMT_SAE)) {
+                } else if (   (ap_wpa_flags & NM_802_11_AP_SEC_KEY_MGMT_PSK)
+                              || (ap_rsn_flags & NM_802_11_AP_SEC_KEY_MGMT_PSK)) {
                     /* WPA PSK */
                     g_object_set(s_wsec, NM_SETTING_WIRELESS_SECURITY_PSK, password.c_str(), NULL);
                     g_object_set(s_wsec, NM_SETTING_WIRELESS_SECURITY_KEY_MGMT, "wpa-psk", NULL);
@@ -800,7 +772,7 @@ namespace RPI {
             if (!nm_device_connection_compatible(device, connection, nullptr))
                 continue;
 
-            return g_object_ref(connection);
+            return static_cast<NMConnection *>(g_object_ref(connection));
         }
 
         return nullptr;
@@ -895,17 +867,16 @@ namespace RPI {
     generate_wpa_key(char *key, size_t len) {
         guint i;
 
-        g_return_if_fail(key);
-        g_return_if_fail(len > WPA_PASSKEY_SIZE);
+        g_return_if_fail (key);
+        g_return_if_fail (len > WPA_PASSKEY_SIZE);
 
+        /* generate a 8-chars ASCII WPA key */
         for (i = 0; i < WPA_PASSKEY_SIZE; i++) {
             int c;
-
-            do {
-                c = nm_random_u64_range_full(48, 122, TRUE);
-                /* skip characters that look similar */
-            } while (NM_IN_SET(c, '1', 'l', 'I', '0', 'O', 'Q', '8', 'B', '5', 'S')
-                     || !g_ascii_isalnum(c));
+            c = g_random_int_range (33, 126);
+            /* too many non alphanumeric characters are hard to remember for humans */
+            while (!g_ascii_isalnum (c))
+                c = g_random_int_range (33, 126);
 
             key[i] = (char) c;
         }
@@ -917,14 +888,13 @@ namespace RPI {
         int i;
         const char *hexdigits = "0123456789abcdef";
 
-        g_return_if_fail(key);
-        g_return_if_fail(len > 10);
+        g_return_if_fail (key);
+        g_return_if_fail (len > 10);
 
         /* generate a 10-digit hex WEP key */
         for (i = 0; i < 10; i++) {
             int digit;
-
-            digit = nm_random_u64_range_full(0, 16, TRUE);
+            digit = g_random_int_range (0, 16);
             key[i] = hexdigits[digit];
         }
         key[10] = '\0';

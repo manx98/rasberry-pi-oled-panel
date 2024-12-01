@@ -2,9 +2,9 @@
 // Created by wenyiyu on 2024/9/2.
 //
 
-#include <csignal>
 #include "astra/utils/clocker.h"
 #include "astra/hal/hal.h"
+#include <thread>
 
 namespace astra {
     Clocker::Clocker() : last_time_(HAL::millis()) {}
@@ -50,7 +50,7 @@ namespace astra {
     void Clocker::waitUntil(int64_t except) {
         auto current = currentDuration();
         if (current < except) {
-            usleep((except - current) * 1000);
+            std::this_thread::sleep_for(std::chrono::milliseconds(except - current));
         }
     }
 }

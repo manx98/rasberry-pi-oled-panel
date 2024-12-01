@@ -11,8 +11,7 @@ extern "C" {
 #include <glib.h>
 #include <libnm/NetworkManager.h>
 #include "config.h"
-
-#define NM_FLAGS_ANY(a, b) (a & b)
+#include <errno.h>
 
 char *
 nm_utils_ssid_to_utf8(const guint8 *ssid, gsize len);
@@ -229,18 +228,12 @@ _NM_IN_STRSET_EVAL_op_streq(const char *x1, const char *x) {
     case v:                        \
         return (n);
 
-#define NM_UTILS_LOOKUP_ITEM_IGNORE_OTHER() \
-    default:                                \
-        break;
-
 const char *nmc_device_reason_to_string(NMDeviceStateReason reason);
 
 const char *nmc_device_state_to_string(NMDeviceState state);
 
 #define _(str) str
 #define N_(str) str
-
-#define NM_FLAGS_HAS(a, b) (a&b)
 
 #define nm_assert(a)
 
@@ -284,9 +277,6 @@ nmc_unique_connection_name(const GPtrArray *connections, const char *try_name);
 
 GQuark nmcli_error_quark(void);
 
-guint64
-nm_random_u64_range_full(guint64 begin, guint64 end, gboolean crypto_bytes);
-
 #if defined(__clang__)
 /* Clang can emit -Wunused-but-set-variable warning for cleanup variables
  * that are only assigned (never used otherwise). Hack around */
@@ -294,68 +284,6 @@ nm_random_u64_range_full(guint64 begin, guint64 end, gboolean crypto_bytes);
 #else
 #define _nm_auto_extra
 #endif
-
-/**
- * nm_close_with_error:
- *
- * Wrapper around close().
- *
- * This fails an nm_assert() for EBADF with a non-negative file descriptor. Trying
- * to close an invalid file descriptor is always a serious bug. Never use close()
- * directly, because we want to catch such bugs.
- *
- * This also suppresses any EINTR and pretends success. That is appropriate
- * on Linux (but not necessarily on other POSIX systems).
- *
- * In no case is it appropriate to use @fd afterwards (or retry).
- *
- * This function returns 0 on success, or a negative errno value.
- * On success, errno is undefined afterwards. On failure, errno is
- * the same as the (negative) return value.
- *
- * In the common case, when you don't intend to handle the error from close(),
- * prefer nm_close() over nm_close_with_error(). Never use close() directly.
- *
- * The function is also async-signal-safe (unless an assertion fails).
- *
- * Returns: 0 on success or the negative errno from close().
- */
-static inline int
-nm_close_with_error(int fd) {
-    int r;
-
-    r = close(fd);
-
-    if (r != 0) {
-        int errsv = errno;
-
-        nm_assert(r == -1);
-
-        /* EBADF indicates a bug.
-         *
-         * - if fd is non-negative, this means the tracking of the descriptor
-         *   got messed up. That's very bad, somebody closed a wrong FD or we
-         *   might do so. On a multi threaded application, messing up the tracking
-         *   of the file descriptor means we race against closing an unrelated FD.
-         * - if fd is negative, it may not be a bug but intentional. However, our callers
-         *   are not supposed to call close() on a negative FD either. Assert
-         *   against that too. */
-        nm_assert(errsv != EBADF);
-
-        if (errsv == EINTR) {
-            /* There isn't really much we can do about EINTR. On Linux, always this means
-             * the FD was closed. On some POSIX systems that may be different and retry
-             * would be appropriate.
-             *
-             * Whether there was any IO error is unknown. Assume not and signal success. */
-            return 0;
-        }
-
-        return -errsv;
-    }
-
-    return 0;
-}
 
 static inline void
 _nm_auto_protect_errno(const int *p_saved_errno) {
@@ -367,40 +295,7 @@ _nm_auto_protect_errno(const int *p_saved_errno) {
 #define NM_AUTO_PROTECT_ERRNO(errsv_saved) \
     nm_auto(_nm_auto_protect_errno) _nm_unused const int errsv_saved = (errno)
 
-
-/**
- * nm_close:
- *
- * Wrapper around nm_close_with_error(), which ignores any error and preserves the
- * caller's errno.
- *
- * We usually don't care about errors from close, so this is usually preferable over
- * nm_close_with_error(). Never use close() directly.
- *
- * Everything from nm_close_with_error() applies.
- */
-static inline void nm_close(int fd);
-
-static inline void _nm_auto_close(int *pfd);
-
-#define nm_auto_close nm_auto(_nm_auto_close)
-
 #define nm_auto(fcn) _nm_auto_extra __attribute__((__cleanup__(fcn)))
-
-#define nm_auto_close nm_auto(_nm_auto_close)
-
-int
-nm_utils_fd_wait_for_event(int fd, int event, gint64 timeout_nsec);
-
-#define NM_UTILS_NSEC_PER_SEC  ((gint64) 1000000000)
-
-#define NM_ERRNO_NATIVE(errsv)        \
-    ({                                \
-        const int _errsv_x = (errsv); \
-                                      \
-        nm_assert(_errsv_x > 0);      \
-        _errsv_x;                     \
-    })
 
 #define NM_AUTO_DEFINE_FCN0(Type, name, func) \
     static inline void name(Type *v)          \
@@ -417,157 +312,13 @@ nm_utils_fd_wait_for_event(int fd, int event, gint64 timeout_nsec);
     }
 
 NM_AUTO_DEFINE_FCN0(GChecksum *, _nm_auto_checksum_free, g_checksum_free);
-#define nm_auto_free_checksum nm_auto(_nm_auto_checksum_free)
 
 NM_AUTO_DEFINE_FCN_VOID0(GMutex *, _nm_auto_unlock_g_mutex, g_mutex_unlock);
 
-#define nm_auto_unlock_g_mutex nm_auto(_nm_auto_unlock_g_mutex)
-
-#define NM_UNIQ_T(x, uniq) NM_PASTE(__unique_prefix_, NM_PASTE(x, uniq))
-
-#define _NM_G_MUTEX_LOCKED(lock, uniq)                                      \
-    _nm_unused nm_auto_unlock_g_mutex GMutex *NM_UNIQ_T(nm_lock, uniq) = ({ \
-        GMutex *const _lock = (lock);                                       \
-                                                                            \
-        g_mutex_lock(_lock);                                                \
-        _lock;                                                              \
-    })
-
-#define NM_UNIQ            __COUNTER__
-
-#define NM_G_MUTEX_LOCKED(lock) _NM_G_MUTEX_LOCKED(lock, NM_UNIQ)
-
-#define NM_UTILS_CHECKSUM_LENGTH_MD5    16
-#define NM_UTILS_CHECKSUM_LENGTH_SHA1   20
-#define NM_UTILS_CHECKSUM_LENGTH_SHA256 32
-
-#define nm_utils_checksum_get_digest(sum, arr)                                   \
-    G_STMT_START                                                                 \
-    {                                                                            \
-        GChecksum *const _sum = (sum);                                           \
-        gsize            _len;                                                   \
-                                                                                 \
-        G_STATIC_ASSERT_EXPR(sizeof(arr) == NM_UTILS_CHECKSUM_LENGTH_MD5         \
-                             || sizeof(arr) == NM_UTILS_CHECKSUM_LENGTH_SHA1     \
-                             || sizeof(arr) == NM_UTILS_CHECKSUM_LENGTH_SHA256); \
-        G_STATIC_ASSERT_EXPR(sizeof(arr) == G_N_ELEMENTS(arr));                  \
-                                                                                 \
-        nm_assert(_sum);                                                         \
-                                                                                 \
-        _len = G_N_ELEMENTS(arr);                                                \
-                                                                                 \
-        g_checksum_get_digest(_sum, (arr), &_len);                               \
-        nm_assert(_len == G_N_ELEMENTS(arr));                                    \
-    }                                                                            \
-    G_STMT_END
-
-
-#define _NM_IN_SET(uniq, op, type, x, ...)                                \
-    ({                                                                    \
-        type NM_UNIQ_T(xx, uniq) = (x);                                   \
-                                                                          \
-        /* trigger a -Wenum-compare warning */                            \
-        nm_assert(true || NM_UNIQ_T(xx, uniq) == (x));                    \
-                                                                          \
-        !!(NM_VA_ARGS_FOREACH(, , op, _NM_IN_SET_OP, uniq, __VA_ARGS__)); \
-    })
-
-#define _NM_IN_SET_OP(x, idx, uniq) ((int) (NM_UNIQ_T(xx, uniq) == (x)))
-
-/* Beware that this does short-circuit evaluation (use "||" instead of "|")
- * which has a possibly unexpected non-function-like behavior.
- * Use NM_IN_SET_SE if you need all arguments to be evaluated. */
-#define NM_IN_SET(x, ...) _NM_IN_SET(NM_UNIQ, ||, typeof(x), x, __VA_ARGS__)
-
-/*****************************************************************************/
-
-/* Historically, our cleanup macros come from a long gone library
- * libgsystem, hence the "gs_" prefix. We still keep using them,
- * although maybe we should drop them and use our respective nm_auto*
- * macros (TODO).
- *
- * GLib also has g_auto() since 2.44. First of all, we still don't
- * depend on 2.44, so we would have add compat implementations to
- * "nm-glib.h" or bump the version.
- * Also, they work differently (nm_auto_unref_hashtable vs g_auto(GHashTable)).
- * If we were to switch to g_auto(), the change would be slightly more complicated
- * than replacing one macro with another (but still easy).
- * However, the reason for using our nm_auto* macros is that we also want cleanup
- * macros in libnm-std-aux, which has no glib dependency. So we still would have
- * some nm_auto* macros mixed with g_auto(). Instead, we consistently use
- * nm_auto* macros (and the gs_* aliases).
- *
- * Note that c-stdaux also brings cleanup macros like _c_cleanup_(c_freep).
- * We use c-stdaux like a proper internal library, so we could instead switch
- * from nm_auto* macros to _c_cleanup_(). Unlike glib, c-stdaux is used by
- * libnm-std-aux. Again, _c_cleanup_ follows a different pattern both from
- * nm_auto* and g_auto(). */
 #define gs_free            nm_auto_g_free
-#define gs_unref_object    nm_auto_unref_object
-#define gs_unref_variant   nm_auto_unref_variant
-#define gs_unref_array     nm_auto_unref_array
-#define gs_unref_ptrarray  nm_auto_unref_ptrarray
-#define gs_unref_hashtable nm_auto_unref_hashtable
-#define gs_unref_bytes     nm_auto_unref_bytes
-#define gs_strfreev        nm_auto_strfreev
-#define gs_free_error      nm_auto_free_error
-
-/*****************************************************************************/
 
 NM_AUTO_DEFINE_FCN_VOID0(void *, _nm_auto_g_free, g_free);
 #define nm_auto_g_free nm_auto(_nm_auto_g_free)
-
-NM_AUTO_DEFINE_FCN_VOID0(GObject *, _nm_auto_unref_object, g_object_unref);
-#define nm_auto_unref_object nm_auto(_nm_auto_unref_object)
-
-NM_AUTO_DEFINE_FCN0(GVariant *, _nm_auto_unref_variant, g_variant_unref);
-#define nm_auto_unref_variant nm_auto(_nm_auto_unref_variant)
-
-NM_AUTO_DEFINE_FCN0(GArray *, _nm_auto_unref_array, g_array_unref);
-#define nm_auto_unref_array nm_auto(_nm_auto_unref_array)
-
-NM_AUTO_DEFINE_FCN0(GPtrArray *, _nm_auto_unref_ptrarray, g_ptr_array_unref);
-#define nm_auto_unref_ptrarray nm_auto(_nm_auto_unref_ptrarray)
-
-NM_AUTO_DEFINE_FCN0(GHashTable *, _nm_auto_unref_hashtable, g_hash_table_unref);
-#define nm_auto_unref_hashtable nm_auto(_nm_auto_unref_hashtable)
-
-NM_AUTO_DEFINE_FCN0(GSList *, _nm_auto_free_slist, g_slist_free);
-#define nm_auto_free_slist nm_auto(_nm_auto_free_slist)
-
-NM_AUTO_DEFINE_FCN0(GBytes *, _nm_auto_unref_bytes, g_bytes_unref);
-#define nm_auto_unref_bytes nm_auto(_nm_auto_unref_bytes)
-
-NM_AUTO_DEFINE_FCN0(char **, _nm_auto_strfreev, g_strfreev);
-#define nm_auto_strfreev nm_auto(_nm_auto_strfreev)
-
-NM_AUTO_DEFINE_FCN0(GError *, _nm_auto_free_error, g_error_free);
-#define nm_auto_free_error nm_auto(_nm_auto_free_error)
-
-NM_AUTO_DEFINE_FCN0(GKeyFile *, _nm_auto_unref_keyfile, g_key_file_unref);
-#define nm_auto_unref_keyfile nm_auto(_nm_auto_unref_keyfile)
-
-NM_AUTO_DEFINE_FCN0(GVariantIter *, _nm_auto_free_variant_iter, g_variant_iter_free);
-#define nm_auto_free_variant_iter nm_auto(_nm_auto_free_variant_iter)
-
-NM_AUTO_DEFINE_FCN0(GVariantBuilder *, _nm_auto_unref_variant_builder, g_variant_builder_unref);
-#define nm_auto_unref_variant_builder nm_auto(_nm_auto_unref_variant_builder)
-
-#define nm_auto_clear_variant_builder nm_auto(g_variant_builder_clear)
-
-NM_AUTO_DEFINE_FCN0(GList *, _nm_auto_free_list, g_list_free);
-#define nm_auto_free_list nm_auto(_nm_auto_free_list)
-
-#define nm_auto_unset_gvalue nm_auto(g_value_unset)
-
-NM_AUTO_DEFINE_FCN_VOID0(void *, _nm_auto_unref_gtypeclass, g_type_class_unref);
-#define nm_auto_unref_gtypeclass nm_auto(_nm_auto_unref_gtypeclass)
-
-NM_AUTO_DEFINE_FCN0(GByteArray *, _nm_auto_unref_bytearray, g_byte_array_unref);
-#define nm_auto_unref_bytearray nm_auto(_nm_auto_unref_bytearray)
-
-NM_AUTO_DEFINE_FCN0(GDateTime *, _nm_auto_unref_gdatetime, g_date_time_unref);
-#define nm_auto_unref_gdatetime nm_auto(_nm_auto_unref_gdatetime)
 
 static inline void
 _nm_auto_free_gstring(GString **str)
@@ -576,88 +327,6 @@ _nm_auto_free_gstring(GString **str)
         g_string_free(*str, TRUE);
 }
 #define nm_auto_free_gstring nm_auto(_nm_auto_free_gstring)
-
-NM_AUTO_DEFINE_FCN0(GSource *, _nm_auto_unref_gsource, g_source_unref);
-#define nm_auto_unref_gsource nm_auto(_nm_auto_unref_gsource)
-
-NM_AUTO_DEFINE_FCN0(guint, _nm_auto_remove_source, g_source_remove);
-#define nm_auto_remove_source nm_auto(_nm_auto_remove_source)
-
-NM_AUTO_DEFINE_FCN0(GIOChannel *, _nm_auto_unref_io_channel, g_io_channel_unref);
-#define nm_auto_unref_io_channel nm_auto(_nm_auto_unref_io_channel)
-
-NM_AUTO_DEFINE_FCN0(GMainLoop *, _nm_auto_unref_gmainloop, g_main_loop_unref);
-#define nm_auto_unref_gmainloop nm_auto(_nm_auto_unref_gmainloop)
-
-NM_AUTO_DEFINE_FCN0(GOptionContext *, _nm_auto_free_option_context, g_option_context_free);
-#define nm_auto_free_option_context nm_auto(_nm_auto_free_option_context)
-
-static inline void
-_nm_auto_freev(gpointer ptr)
-{
-    gpointer **p = (gpointer **)ptr;
-    gpointer  *_ptr;
-
-    if (*p) {
-        for (_ptr = *p; *_ptr; _ptr++)
-            g_free(*_ptr);
-        g_free(*p);
-    }
-}
-/* g_free a NULL terminated array of pointers, with also freeing each
- * pointer with g_free(). It essentially does the same as
- * gs_strfreev / g_strfreev(), but not restricted to strv arrays. */
-#define nm_auto_freev nm_auto(_nm_auto_freev)
-
-#define NM_DBUS_DEFAULT_TIMEOUT_MSEC 25000
-
-static inline void
-nm_g_variant_unref_floating(GVariant *var)
-{
-    /* often a function wants to keep a reference to an input variant.
-     * It uses g_variant_ref_sink() to either increase the ref-count,
-     * or take ownership of a possibly floating reference.
-     *
-     * If the function doesn't actually want to do anything with the
-     * input variant, it still must make sure that a passed in floating
-     * reference is consumed. Hence, this helper which:
-     *
-     *   - does nothing if @var is not floating
-     *   - unrefs (consumes) @var if it is floating. */
-    if (g_variant_is_floating(var))
-        g_variant_unref(var);
-}
-
-static inline void
-nm_g_set_error_take(GError **error, GError *error_take)
-{
-    if (!error_take)
-        g_return_if_reached();
-    if (!error) {
-        g_error_free(error_take);
-        return;
-    }
-    if (*error) {
-        g_error_free(error_take);
-        g_return_if_reached();
-    }
-    *error = error_take;
-}
-
-#define nm_g_set_error_take_lazy(error, error_take_lazy)    \
-    {                                                       \
-        GError **_error = (error);                          \
-                                                            \
-        if (_error)                                         \
-            nm_g_set_error_take(_error, (error_take_lazy)); \
-    }
-
-gboolean
-nm_client_deactivate_connection(NMClient           *client,
-                                NMActiveConnection *active,
-                                GCancellable       *cancellable,
-                                GError            **error);
-
 
 NMActiveConnectionState
 nmc_activation_get_effective_state(NMActiveConnection *active,

@@ -46,10 +46,6 @@ nm_g_object_unref(gpointer obj) {
         g_object_unref(obj);
 }
 
-void nm_utils_invoke_on_idle(GCancellable *cancellable,
-                             NMUtilsInvokeOnIdleCallback callback,
-                             gpointer callback_user_data);
-
 void nm_utils_invoke_on_timeout(guint timeout_msec,
                                 GCancellable *cancellable,
                                 NMUtilsInvokeOnIdleCallback callback,
