@@ -1048,7 +1048,6 @@ namespace RPI {
         g_main_loop_run(data.loop);
         g_main_loop_unref(data.loop);
         out:
-        g_object_unref(s_wsec);
         g_object_unref(connection);
         g_object_unref(data.client);
         g_bytes_unref(ssid_bytes);
@@ -1285,7 +1284,7 @@ namespace RPI {
         }
         cur_conn_id = nm_active_connection_get_id(conn);
         if (g_strcmp0(cur_conn_id, conn_id.c_str())) {
-            spdlog::warn("Error: Connection '{}' does not match bssid '{}'.", conn_id, cur_conn_id);
+            spdlog::warn("Error: Connection '{}' does not match Id '{}'.", conn_id, cur_conn_id);
             goto out;
         }
         if (nm_client_deactivate_connection(client, conn, nullptr, &error)) {
@@ -1424,7 +1423,7 @@ namespace RPI {
 
     std::string cStr(const char *str) {
         if (str) {
-            return std::string(str);
+            return {str};
         }
         return {};
     }

@@ -13,6 +13,7 @@
 //传进去的有三个东西 第一个是文字（要显示的东西） 第二个是类别（普通列表 跳转列表 复选框） 第三个是特征向量（指向复选框和弹窗对应的参数 要跳转的地方等）
 
 #include "astra/ui/item/menu/menu.h"
+#include "astra/ui/launcher.h"
 
 /**
  *     ·  ·     ·   ·
@@ -74,6 +75,36 @@ namespace astra {
             delete item;
         }
         childWidget.clear();
+    }
+
+    void Menu::removeItem(Menu *_page) {
+        for (auto it = childMenu.begin(); it != childMenu.end(); ++it) {
+            auto item = *it;
+            if (item == _page) {
+                childMenu.erase(it);
+                delayRemoveItem.push_back(item);
+                if(childMenu.size() >= selectIndex) {
+                    Launcher::getSelector()->goPreview();
+                } else {
+                    Launcher::getSelector()->setPosition();
+                }
+                break;
+            }
+        }
+    }
+
+    void Menu::cleanDelayRemoveItem() {
+        if(!delayRemoveItem.empty()) {
+            for (auto &item: delayRemoveItem) {
+                delete item;
+            }
+            delayRemoveItem.clear();
+        }
+    }
+
+    void Menu::doRender(const std::vector<float> &_camera, Clocker &clocker) {
+        cleanDelayRemoveItem();
+        render(_camera, clocker);
     }
 
     void List::childPosInit(const std::vector<float> &_camera) {

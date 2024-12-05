@@ -9,12 +9,14 @@
 #include "text.h"
 #include "wifi.h"
 #include "utils/wifi.h"
+#include "spdlog/spdlog.h"
 
 static bool sortWifiInfoStrengthCb(const RPI::WifiInfo &a, const RPI::WifiInfo &b) {
     return a.strength > b.strength;
 }
 
-WifiScanListEvent::WifiScanListEvent(std::string _device_name) : device_name_(std::move(_device_name)) {}
+WifiScanListEvent::WifiScanListEvent(const std::list<RPI::ConnectionInfo> *connections, std::string _device_name)
+        : m_connections(connections), device_name_(std::move(_device_name)) {}
 
 bool WifiScanListEvent::beforeOpen(astra::Menu *current) {
     astra::TextBox title(0, {{SCANNING_TEXT, astra::getUIConfig().mainFont}});
@@ -26,8 +28,9 @@ bool WifiScanListEvent::beforeOpen(astra::Menu *current) {
         auto font = astra::getUIConfig().mainFont;
         for (const auto &item: infos) {
             current->addItem(new astra::List(
-                    {0, {{fmt::format("[{:02d}] {}", item.strength, item.SSID.empty() ? "--" : item.SSID), font}}},
-                    new WifiOperationEvent(item, device_name_)));
+                    {0,
+                     {{fmt::format("[{:02d}] {}", item.strength, item.SSID.empty() ? EMPTY_SSID : item.SSID), font}}},
+                    new WifiOperationEvent(m_connections, item, device_name_)));
         }
         finished = true;
     });
@@ -47,6 +50,7 @@ bool WifiScanListEvent::beforeRender(astra::Menu *current, const std::vector<flo
 bool WifiDeviceEvent::beforeOpen(astra::Menu *current) {
     std::atomic<bool> finished{false};
     std::thread t([&]() {
+        m_connections = RPI::get_connections();
         auto devices = RPI::getWifiDevices();
         current->clear();
         auto font = astra::getUIConfig().mainFont;
@@ -55,7 +59,7 @@ bool WifiDeviceEvent::beforeOpen(astra::Menu *current) {
             if (!item.SSID.empty()) {
                 title.add({"  " + item.SSID, font});
             }
-            current->addItem(new astra::List(title, new WifiScanListEvent(item.iface)));
+            current->addItem(new astra::List(title, new WifiScanListEvent(&m_connections, item.iface)));
         }
         finished = true;
     });
@@ -74,10 +78,39 @@ bool WifiDeviceEvent::beforeRender(astra::Menu *current, const std::vector<float
 
 bool WifiOperationEvent::beforeOpen(astra::Menu *current) {
     current->clear();
-    current->addItem(new astra::List({0, {{m_info.SSID, astra::getUIConfig().mainFont}}}));
-    current->addItem(new astra::List({0, {{fmt::format("<BSS> {}", m_info.BSS), u8g2_font_tiny5_te}}}));
-    current->addItem(new astra::List({0, {{fmt::format("<{}> {} MHz", nm_utils_wifi_freq_to_channel(m_info.frequency),
-                                                       m_info.frequency), u8g2_font_tiny5_te}}}));
+    current->addItem(new astra::List({0, {
+            {m_info.SSID.empty() ? EMPTY_SSID : m_info.SSID, astra::getUIConfig().mainFont},
+            {m_info.BSS, astra::getUIConfig().mainFont},
+            {fmt::format("[{:02d}] {} MHz", nm_utils_wifi_freq_to_channel(m_info.frequency),
+                         m_info.frequency), astra::getUIConfig().mainFont}
+    }}));
+    std::unique_ptr<RPI::ConnectionInfo> info(RPI::get_active_connection(m_device_name));
+    bool active = false;
+    if (info) {
+        spdlog::info("active connection, id={}, ssid={}, bssid={}", info->id, info->ssid, info->bssid);
+        if (info->bssid.empty()) {
+            active = m_info.SSID == info->ssid;
+        } else {
+            active = m_info.BSS == info->bssid;
+        }
+    }
+    current->addItem(
+            new astra::List({0, {{active ? DISCONNECT_WIFI_TEXT : CONNECT_WIFI_TEXT, astra::getUIConfig().mainFont}}}));
+    if(m_connections) {
+        for (const auto &item: *m_connections)
+        {
+            bool is_config;
+            if(item.bssid.empty()) {
+                is_config = item.ssid == m_info.SSID;
+            } else {
+                is_config = item.ssid == m_info.BSS;
+            }
+            if(is_config) {
+                current->addItem(new astra::List({0, {{FORGET_WIFI_TEXT, astra::getUIConfig().mainFont}}}, new WifiOperationForgetEvent(item)));
+                break;
+            }
+        }
+    }
     return true;
 }
 
@@ -86,5 +119,22 @@ WifiOperationEvent::beforeRender(astra::Menu *current, const std::vector<float> 
     return true;
 }
 
-WifiOperationEvent::WifiOperationEvent(const RPI::WifiInfo& _wifi, std::string device_name) : m_info(std::move(_wifi)), m_device_name(std::move(device_name)) {
+WifiOperationEvent::WifiOperationEvent(const std::list<RPI::ConnectionInfo> *connections, RPI::WifiInfo _wifi,
+                                       std::string device_name) :
+        m_connections(connections), m_info(std::move(_wifi)), m_device_name(std::move(device_name)) {
+}
+
+WifiOperationForgetEvent::WifiOperationForgetEvent(RPI::ConnectionInfo  info): m_info(std::move(info)) {
+}
+
+bool WifiOperationForgetEvent::beforeOpen(astra::Menu *current) {
+    if(current->parent) {
+        current->parent->removeItem(current);
+    }
+    return false;
+}
+
+bool WifiOperationForgetEvent::beforeRender(astra::Menu *current, const std::vector<float> &_camera,
+                                            astra::Clocker &clocker) {
+    return false;
 }

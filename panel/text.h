@@ -18,5 +18,8 @@ static std::string ENABLE_SUCCESS_TEXT = "已启用";
 static std::string ENABLE_FAIL_TEXT = "启用失败!";
 static std::string DISABLE_SUCCESS_TEXT = "已禁用";
 static std::string DISABLE_FAIL_TEXT = "禁用失败!";
-
+static std::string EMPTY_SSID = "--";
+static std::string DISCONNECT_WIFI_TEXT = "- 断开连接";
+static std::string CONNECT_WIFI_TEXT = "- 连接";
+static std::string FORGET_WIFI_TEXT = "- 忘记连接";
 #endif //RASPBERRY_PI_OLED_PANEL_TEXT_H

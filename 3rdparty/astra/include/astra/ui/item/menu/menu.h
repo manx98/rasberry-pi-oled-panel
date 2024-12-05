@@ -99,14 +99,20 @@ namespace astra {
         void deInit(); //每次关闭页面都要调用一次
 
     public:
+        void doRender(const std::vector<float> &_camera, Clocker &clocker);
         virtual void render(const std::vector<float> &_camera, Clocker &clocker) {}  //render all child item.
-
+    private:
+        std::vector<Menu *> delayRemoveItem;
     public:
         bool addItem(Menu *_page);
 
         bool addItem(Menu *_page, Widget *_anyWidget); //新建一个带有控件的列表项
 
+        void removeItem(Menu *_page);
+
         void clear();
+
+        void cleanDelayRemoveItem();
     };
 
     class List : public Menu {

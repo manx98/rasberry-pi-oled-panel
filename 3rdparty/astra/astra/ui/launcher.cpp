@@ -24,7 +24,7 @@ namespace astra {
             render_clocker.next();
             HAL::canvasClear();
             /*渲染一帧*/
-            currentMenu->render(camera->getPosition(), render_clocker);
+            currentMenu->doRender(camera->getPosition(), render_clocker);
             selector->render(camera->getPosition(), render_clocker);
             camera->update(currentMenu, selector, render_clocker);
             /*渲染一帧*/
@@ -163,7 +163,7 @@ namespace astra {
 
     void Launcher::update() {
         update(true, [&](Clocker &render_clocker, key::keyIndex active_key) {
-            currentMenu->render(camera->getPosition(), render_clocker);
+            currentMenu->doRender(camera->getPosition(), render_clocker);
             if (currentWidget != nullptr) currentWidget->render(camera->getPosition());
             selector->render(camera->getPosition(), render_clocker);
             camera->update(currentMenu, selector, render_clocker);
