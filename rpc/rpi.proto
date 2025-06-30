@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.github.manx98.rpi_rpc";
+option java_outer_classname = "rpi_rpc";
+option objc_class_prefix = "RPI_RPC";
+
+package RPI_PRC;
+
+service RpiControllerService {
+  rpc GetINA226(EMPTY) returns (INA226Response) {}
+  rpc SetPinMode(PinModeRequest) returns (EMPTY) {}
+  rpc SetPinValue(PinValueRequest) returns (EMPTY) {}
+  rpc GetPinValue(PinNumber) returns (PinValueResponse) {}
+  rpc GetSGP30(EMPTY) returns (SGP30Response) {}
+  rpc GetSHT3X(EMPTY) returns (SHT3XResponse) {}
+}
+
+message EMPTY {}
+
+enum PinMode {
+  Input = 0;
+  Output = 1;
+  PWM = 2;
+};
+
+message PinModeRequest {
+  int32 pin_number = 1;
+  PinMode mode = 2;
+}
+
+message PinValueRequest {
+  int32 pin_number = 1;
+  int32 value = 2;
+}
+
+message PinNumber {
+  int32 pin_number = 1;
+}
+
+message PinValueResponse {
+  bool value = 1;
+}
+
+message INA226Response {
+  double shunt_current = 1;
+  double shunt_voltage = 2;
+  double bus_voltage = 3;
+  double bus_power = 4;
+}
+
+message SGP30Response {
+  uint32 ECO2 = 1;
+  uint32 TVOC = 2;
+}
+
+message SHT3XResponse {
+  double temperature = 1;
+  double humidity = 2;
+}

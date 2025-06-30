@@ -38,7 +38,7 @@ public:
 
     void _setFont(const unsigned char *_font) override;
 
-    unsigned char _getFontWidth(std::string &_text) override;
+    int _getFontWidth(const std::string &_text) override;
 
     unsigned char _getFontHeight() override;
 

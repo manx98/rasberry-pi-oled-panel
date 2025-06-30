@@ -151,6 +151,11 @@ namespace astra {
 
         this->position = {};
         this->positionForeground = {};
+        title.setMaxWidth(systemConfig.screenWeight
+            - astraConfig.listBarWeight
+            - astraConfig.checkBoxRightMargin
+            - astraConfig.checkBoxWidth
+            - astraConfig.listTextMargin * 2);
     }
 
     List::List(const TextBox &_title, const std::vector<unsigned char> &_pic) : Menu(_title) {
@@ -198,7 +203,7 @@ namespace astra {
             }
             //绘制文字
             _iter->title.draw(_iter->position.x + _camera[0],
-                              _iter->position.y + _iter->title.getHeight() + _camera[1]);
+                              _iter->position.y + _iter->title.getHeight() + _camera[1], clocker);
             //这里的yTrg在addItem的时候就已经确定了
             Animation::move(_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, clocker);
             index++;
@@ -247,7 +252,7 @@ namespace astra {
     }
 
     float List::getWidth() {
-        return title.getWidth() + astraConfig.listTextMargin;
+        return title.getWidth() + astraConfig.listTextMargin * 2;
     }
 
     float List::getHeight() {
@@ -403,5 +408,9 @@ namespace astra {
 
     float Tile::getHeight() {
         return 0;
+    }
+
+    void Tile::setMaxWidth(float max_w)
+    {
     }
 }

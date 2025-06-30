@@ -51,7 +51,6 @@ namespace astra {
         virtual float getWidth() = 0;
 
         virtual float getHeight() = 0;
-
     public:
         //存储其在父页面中的位置
         //list中就是每一项对应的坐标 tile中就是每一个图片的坐标
@@ -131,7 +130,6 @@ namespace astra {
         float getWidth() override;
 
         float getHeight() override;
-
     public:
         void childPosInit(const std::vector<float> &_camera) override;
 
@@ -196,6 +194,8 @@ namespace astra {
         float getWidth() override;
 
         float getHeight() override;
+
+        void setMaxWidth(float max_w);
     };
 
 }

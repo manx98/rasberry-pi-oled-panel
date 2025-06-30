@@ -11,7 +11,7 @@ namespace astra {
     Selector *Launcher::selector = {};
     Camera *Launcher::camera = {};
 
-    void Launcher::popInfo(const TextBox &info, uint16_t _time) {
+    void Launcher::popInfo(TextBox info, uint16_t _time) {
         float wPop = info.getWidth() + 2 * getUIConfig().popMargin;  //宽度
         float hPop = info.getHeight() + 2 * getUIConfig().popMargin;  //高度
         float yPop = 0 - hPop - 8; //从屏幕上方滑入
@@ -33,7 +33,7 @@ namespace astra {
             HAL::drawRBox(xPop - 4, yPop - 4, wPop + 8, hPop + 8, getUIConfig().popRadius + 2);
             HAL::setDrawType(1);  //反色显示
             HAL::drawRFrame(xPop - 1, yPop - 1, wPop + 2, hPop + 2, getUIConfig().popRadius);  //绘制一个圆角矩形
-            info.draw(xPop + getUIConfig().popMargin, yPop + getUIConfig().popMargin + info.getHeight()); //绘制文字
+            info.draw(xPop + getUIConfig().popMargin, yPop + getUIConfig().popMargin + info.getHeight(), render_clocker); //绘制文字
             Animation::move(yPop, yPopTrg, getUIConfig().popSpeed, render_clocker);  //动画
             HAL::canvasUpdate();
 
@@ -249,7 +249,7 @@ namespace astra {
                 }
                 if (text) {
                     text->draw(progressBoxX + progressInnerPadding + 4,
-                               progressBoxY + text->getHeight() + progressInnerPadding * 2 + 6);
+                               progressBoxY + text->getHeight() + progressInnerPadding * 2 + 6, render_clocker);
                 }
             });
         }

@@ -132,6 +132,8 @@ list(APPEND SRC
         csrc/u8x8_string.c
         csrc/u8x8_u8toa.c
         csrc/u8x8_u16toa.c
+        csrc/u8x8_d_sdl_128x64.c
+        csrc/u8x8_sdl_key.c
         port/u8g2port.c
         cppsrc/Print.cpp
         cppsrc/U8g2lib.cpp
@@ -148,5 +150,12 @@ list(APPEND SRC
         include/U8x8lib.h
 )
 add_library(${PROJECT_NAME} STATIC ${SRC})
-target_link_libraries(${PROJECT_NAME} periphery)
+set(LIBS wiringPi)
+if (SDL2_FOUND)
+    list(APPEND LIBS ${SDL2_LIBRARIES})
+else ()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE -DNO_SDL)
+endif ()
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/wiringPi/include)
+target_link_libraries(${PROJECT_NAME} ${LIBS})
 add_subdirectory(examples)

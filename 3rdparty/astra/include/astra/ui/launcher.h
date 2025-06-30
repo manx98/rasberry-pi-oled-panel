@@ -17,7 +17,7 @@ namespace astra {
         static Selector *selector;
         static Camera *camera;
     public:
-        static void popInfo(const TextBox &info, uint16_t _time);
+        static void popInfo(TextBox info, uint16_t _time);
 
         static void progress(float width, TextBox *text, const float *percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback);
 

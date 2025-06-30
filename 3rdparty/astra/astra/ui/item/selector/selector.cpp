@@ -97,7 +97,7 @@ namespace astra {
             //文字不受摄像机的影响
             HAL::setDrawType(1);
             auto &title = menu->childMenu[menu->selectIndex]->title;
-            title.draw((systemConfig.screenWeight - title.getWidth()) / 2.0, yText + title.getHeight());
+            title.draw((systemConfig.screenWeight - title.getWidth()) / 2.0, yText + title.getHeight(), clocker);
 
             //draw box.
             //大框需要受摄像机的影响
@@ -157,7 +157,7 @@ namespace astra {
                 return astraConfig.tileSelectBoxWidth;
             } else if (menu->getType() == WIDGET_TYPE_LIST) {
                 auto &childMenu = menu->childMenu[menu->selectIndex];
-                return childMenu->title.getWidth() + astraConfig.listTextMargin * 2;
+                return childMenu->getWidth();
             }
         }
         return 0;

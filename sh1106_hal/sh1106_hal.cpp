@@ -4,17 +4,17 @@
 
 #include "sh1106_hal.h"
 #include <u8g2port.h>
+#include <wiringPi/wiringPi.h>
 
 // Set I2C bus and address
 #define I2C_BUS 1
-#define I2C_ADDRESS 0x3c * 2
-#define GPIO_CHIP_PATH "/dev/gpiochip0"
+#define I2C_ADDRESS (0x3c * 2)
 #define GPIO_KEY_PREV 26
 #define GPIO_KEY_NEXT 25
 #define GPIO_KEY_CONFIRM 16
 #define GPIO_KEY_CANCEL 24
 
-static std::vector<int> HAL_GPIO_PINS{GPIO_KEY_PREV, GPIO_KEY_NEXT, GPIO_KEY_CONFIRM, GPIO_KEY_CANCEL};
+static std::vector HAL_GPIO_PINS{GPIO_KEY_PREV, GPIO_KEY_NEXT, GPIO_KEY_CONFIRM, GPIO_KEY_CANCEL};
 
 void Sh1106Hal::init() {
     HALDreamCore::init();
@@ -32,17 +32,13 @@ void Sh1106Hal::init() {
     u8g2_SetFontDirection(&canvasBuffer, 0); /*字体方向选择*/
     u8g2_SetFont(&canvasBuffer, astra::getUIConfig().mainFont); /*字库选择*/
     for(int i=0; i< key::KEY_NUM;i++){
-        keys_[i] = gpio_new();
-        if (gpio_open(keys_[i], GPIO_CHIP_PATH, HAL_GPIO_PINS[i], GPIO_DIR_IN) < 0) {
-            fprintf(stderr, "gpio_open(): %s\n", gpio_errmsg(keys_[i]));
-            exit(1);
-        }
+        pinMode(HAL_GPIO_PINS[i], INPUT);
     }
 }
 
 bool Sh1106Hal::_getKey(key::KEY_INDEX _keyIndex) {
     bool clicked{false};
-    gpio_read(keys_[_keyIndex], &clicked);
+    clicked = digitalRead(HAL_GPIO_PINS[_keyIndex]) == HIGH;
     return clicked;
 };
 

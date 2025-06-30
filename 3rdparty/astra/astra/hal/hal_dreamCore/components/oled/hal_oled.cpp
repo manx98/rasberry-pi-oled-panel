@@ -4,6 +4,7 @@
 #include <cmath>
 #include "astra/hal/hal_dreamCore/hal_dreamCore.h"
 #include <u8g2.h>
+#include <u8x8.h>
 
 void *HALDreamCore::_getCanvasBuffer() {
   return u8g2_GetBufferPtr(&canvasBuffer);
@@ -31,7 +32,7 @@ void HALDreamCore::_setFont(const unsigned char *_font) {
   u8g2_SetFont(&canvasBuffer, _font);
 }
 
-unsigned char HALDreamCore::_getFontWidth(std::string &_text) {
+int HALDreamCore::_getFontWidth(const std::string &_text) {
   return u8g2_GetUTF8Width(&canvasBuffer, _text.c_str());
 }
 

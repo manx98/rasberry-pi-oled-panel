@@ -6,16 +6,16 @@ extern "C" {
 #endif
 
 #include <u8g2.h>
-#include <periphery/gpio.h>
-#include <periphery/i2c.h>
-#include <periphery/spi.h>
-#include <time.h>
-#include <stdio.h>
-#include <stdlib.h>
 
 #define MAX_I2C_HANDLES 8
 #define MAX_SPI_HANDLES 256
 
+struct gpio_struc_t;
+typedef struct gpio_struc_t gpio_t;
+
+void gpio_close(gpio_t* pin);
+void gpio_free(gpio_t* pin);
+gpio_t* gpio_new(uint8_t pin_number);
 /*
  * User data passed in user_ptr of u8x8_struct.
  */
@@ -58,7 +58,6 @@ void init_spi_sw(u8g2_t *u8g2, uint8_t gpio_chip, uint8_t dc, uint8_t res,
 void done_user_data(u8g2_t *u8g2);
 void init_pin(u8x8_t *u8x8, uint8_t pin);
 void write_pin(u8x8_t *u8x8, uint8_t pin, uint8_t value);
-void init_i2c(u8x8_t *u8x8);
 void done_i2c();
 void init_spi(u8x8_t *u8x8);
 void done_spi();

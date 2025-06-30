@@ -6,7 +6,6 @@
 #define RASPBERRY_PI_OLED_PANEL_SH1106_HAL_H
 
 #include <astra/hal/hal_dreamCore/hal_dreamCore.h>
-#include <periphery/gpio.h>
 
 class Sh1106Hal : public HALDreamCore {
 public:
@@ -15,8 +14,6 @@ public:
     void _screenOn() override;
     void _screenOff() override;
     void init() override;
-private:
-    gpio_t * keys_[key::KEY_NUM];
 };
 
 

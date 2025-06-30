@@ -17,29 +17,40 @@ namespace astra {
     };
 
     class Text {
-    private:
-        std::string m_text;
-        const unsigned char *m_font;
-        float m_w, m_h;
     public:
         Text(std::string _text, const unsigned char *_font);
         [[nodiscard]] float getHeight() const;
         [[nodiscard]] float getWidth() const;
-        void draw(float _x, float _y) const;
+        void setMaxWidth(float _max_w);
+        void draw(float _x, float _y, Clocker &clocker);
+    private:
+        void resetAnimate();
+        std::string computeAnimate(Clocker &clocker);
+        std::string m_text;
+        const unsigned char *m_font;
+        float m_w, m_h, max_w;
+        int64_t animate_duration_count;
+        int animate_offset;
+        int animate_offset_max;
+        bool animate_forward;
+        std::vector<int> _width;
+        std::vector<int> _pos;
     };
 
     class TextBox {
     private:
         std::vector<Text> m_texts;
         float m_w, m_h;
+        float max_w{0};
         float m_margin{0};
         void updateWidth();
     public:
         TextBox(float margin, const std::initializer_list<Text> &_texts);
         void setText(int _index, const Text &_text);
+        void setMaxWidth(float _max_w);
         void add(Text _text);
         void remove(int _index);
-        void draw(float _x, float _y) const;
+        void draw(float _x, float _y, Clocker &clocker);
         void clear();
         [[nodiscard]] float getWidth() const;
         [[nodiscard]] float getHeight() const;

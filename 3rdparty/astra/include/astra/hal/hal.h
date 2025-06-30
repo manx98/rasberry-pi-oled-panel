@@ -103,9 +103,9 @@ public:
 
   virtual void _setFont(const unsigned char *_font) {}
 
-  static unsigned char getFontWidth(std::string &_text) { return get()->_getFontWidth(_text); }
+  static int getFontWidth(const std::string &_text) { return get()->_getFontWidth(_text); }
 
-  virtual unsigned char _getFontWidth(std::string &_text) { return 0; }
+  virtual int _getFontWidth(const std::string &_text) { return 0; }
 
   static unsigned char getFontHeight() { return get()->_getFontHeight(); }
 
