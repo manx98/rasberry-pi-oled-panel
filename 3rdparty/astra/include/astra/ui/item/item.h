@@ -32,6 +32,8 @@ namespace astra {
         static void blur();
 
         static void move(float &_pos, float _posTrg, float _speed, Clocker &clocker);
+
+        static void moveUniform(float &_pos, float _posTrg, float _speed, Clocker &clocker);
     };
 
     inline void Animation::entry() {}
@@ -102,6 +104,15 @@ namespace astra {
             } else {
                 _pos += (_posTrg - _pos) / ((100 - _speed) / 1.0f);
             }
+        }
+    }
+
+    inline void Animation::moveUniform(float &_pos, float _posTrg, float _speed, Clocker &clocker)
+    {
+        _pos += clocker.lastDuration() / _speed;
+        if (_pos >= _posTrg)
+        {
+            _pos = _posTrg;
         }
     }
 }

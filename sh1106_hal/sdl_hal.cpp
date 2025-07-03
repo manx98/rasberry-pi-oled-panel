@@ -72,3 +72,8 @@ void SDLHal::init()
     u8g2_SetFontDirection(&canvasBuffer, 0); /*字体方向选择*/
     u8g2_SetFont(&canvasBuffer, astra::getUIConfig().mainFont); /*字库选择*/
 }
+
+u8g2_t* SDLHal::getBuffer()
+{
+    return &canvasBuffer;
+}

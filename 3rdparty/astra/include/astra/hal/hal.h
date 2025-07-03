@@ -103,9 +103,9 @@ public:
 
   virtual void _setFont(const unsigned char *_font) {}
 
-  static int getFontWidth(const std::string &_text) { return get()->_getFontWidth(_text); }
+  static float getFontWidth(const std::string &_text) { return get()->_getFontWidth(_text); }
 
-  virtual int _getFontWidth(const std::string &_text) { return 0; }
+  virtual float _getFontWidth(const std::string &_text) { return 0; }
 
   static unsigned char getFontHeight() { return get()->_getFontHeight(); }
 
@@ -230,6 +230,14 @@ public:
   static void screenOff() { get()->_screenOff(); }
 
   virtual void _screenOff() {}
+
+  static void setClipWindow(float x0, float y0, float x1, float y1){ get()->_setClipWindow(x0, y0, x1, y1); }
+
+  virtual void _setClipWindow(float x0, float y0, float x1, float y1) {};
+
+  static void setMaxClipWindow(){ get()->_setMaxClipWindow(); }
+
+  virtual void _setMaxClipWindow() {};
 
   /**
    * @brief key.

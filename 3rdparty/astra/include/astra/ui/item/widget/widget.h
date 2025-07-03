@@ -25,16 +25,15 @@ namespace astra {
         void draw(float _x, float _y, Clocker &clocker);
     private:
         void resetAnimate();
-        std::string computeAnimate(Clocker &clocker);
-        std::string m_text;
-        const unsigned char *m_font;
-        float m_w, m_h, max_w;
-        int64_t animate_duration_count;
-        int animate_offset;
-        int animate_offset_max;
-        bool animate_forward;
-        std::vector<int> _width;
-        std::vector<int> _pos;
+        std::string m_text_;
+        const unsigned char *m_font_;
+        float m_w_;
+        float m_h_;
+        float m_max_w_{0};
+        float animate_offset_{0};
+        float animate_boundary_wait_time_{0};
+        float animate_offset_max_{0};
+        bool animate_forward_{false};
     };
 
     class TextBox {

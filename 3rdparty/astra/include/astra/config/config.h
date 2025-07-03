@@ -80,7 +80,8 @@ struct config {
   float progressHeight = 4; // 进度条高度
   float progressInfAnimationSpeed = 25; //无限滚动条速度
   float number_input_margin_x = 4; // 数字输入框左右边距
-  float text_flow_speed = 500; // 文本滚动速度(ms/字)
+  float text_flow_speed = 30; // 文本滚动速度(ms/px)
+  float text_flow_boundary_wait_time = 500; // 文本滚动边界等待时间
 };
 
 static config &getUIConfig() {

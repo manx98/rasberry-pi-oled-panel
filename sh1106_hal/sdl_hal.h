@@ -11,6 +11,7 @@ public:
     void _screenOn() override;
     void _screenOff() override;
     void init() override;
+    u8g2_t* getBuffer();
 };
 
 

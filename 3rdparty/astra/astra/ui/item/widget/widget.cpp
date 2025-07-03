@@ -104,124 +104,73 @@ namespace astra {
         Widget::render(_camera);
     }
 
-    static bool buildStringPrefixWidthAndPos(const std::string &text, std::vector<int> &_width, std::vector<int> &_pos)
-    {
-        auto getWidth = [](unsigned char byte)-> int
-        {
-            if ((byte & 0xF8) == 0xF0) return 4; // 4字节字符
-            if ((byte & 0xF0) == 0xE0) return 3; // 3字节字符
-            if ((byte & 0xE0) == 0xC0) return 2; // 2字节字符
-            return 1;
-        };
-        _width.push_back(0);
-        _pos.push_back(0);
-        for (int i = 0; i < text.size();)
-        {
-            auto width = getWidth(text[i]);
-            if (i + width > text.size())
-            {
-                return false;
-            }
-            i += width;
-            _width.push_back(HAL::getFontWidth(text.substr(0, i)));
-            _pos.push_back(i);
-        }
-        return true;
-    }
-
-    Text::Text(std::string _text, const unsigned char *_font) : m_text(std::move(_text)), m_font(_font) {
-        HAL::setFont(m_font);
-        buildStringPrefixWidthAndPos(m_text, _width, _pos);
-        m_w = _width.empty() ? 0 : _width[_width.size() -1];
-        m_h = HAL::getFontHeight();
-        max_w = m_w;
+    Text::Text(std::string _text, const unsigned char *_font) : m_text_(std::move(_text)), m_font_(_font) {
+        HAL::setFont(m_font_);
+        m_w_ = HAL::getFontWidth(m_text_);;
+        m_h_ = HAL::getFontHeight();
         resetAnimate();
     }
 
     float Text::getHeight() const {
-        return m_h;
+        return m_h_;
     }
 
     float Text::getWidth() const {
-        if (m_w > max_w)
+        if (animate_offset_max_ > 0)
         {
-            return max_w;
+            return m_max_w_;
         }
-        return m_w;
+        return m_w_;
     }
 
-    void Text::setMaxWidth(float _max_w)
+    void Text::setMaxWidth(float max_w)
     {
-        if (_max_w != max_w)
+        if (max_w != m_max_w_)
         {
-            max_w = _max_w;
+            m_max_w_ = max_w;
+            animate_offset_max_ = m_w_ - m_max_w_;
             resetAnimate();
         }
     }
 
     void Text::draw(float _x, float _y, Clocker &clocker) {
-        HAL::setFont(m_font);
-        HAL::drawChinese(_x, _y, computeAnimate(clocker));
+        HAL::setFont(m_font_);
+        if (animate_offset_max_ > 0)
+        {
+            if (animate_boundary_wait_time_ > 0)
+            {
+                animate_boundary_wait_time_-=clocker.lastDuration();
+            }
+            if (animate_boundary_wait_time_ <= 0)
+            {
+                Animation::moveUniform(animate_offset_, animate_offset_max_, getUIConfig().text_flow_speed, clocker);
+            }
+            HAL::setClipWindow(_x, _y - m_h_ + 2, _x + m_max_w_, _y + 2);
+            if (animate_offset_ >= animate_offset_max_)
+            {
+                animate_offset_ = 0;
+                animate_boundary_wait_time_ = getUIConfig().text_flow_boundary_wait_time;
+                animate_forward_ = !animate_forward_;
+            }
+            if (animate_forward_)
+            {
+                _x -= animate_offset_max_ - animate_offset_;
+            } else
+            {
+                _x -= animate_offset_;
+            }
+        }
+        HAL::drawChinese(_x, _y, m_text_);
+        if (animate_offset_max_ > 0)
+        {
+            HAL::setMaxClipWindow();
+        }
     }
 
     void Text::resetAnimate()
     {
-        animate_offset = 0;
-        animate_offset_max = 0;
-        animate_duration_count = 0;
-        animate_forward = true;
-        int offset = m_w - max_w;
-        if (offset > 0)
-        {
-            for (int i = 0; i < _width.size(); i++)
-            {
-                if (_width[i] > offset)
-                {
-                    animate_offset_max = i;
-                    return;
-                }
-            }
-        }
-    }
-
-    std::string Text::computeAnimate(Clocker& clocker)
-    {
-        if (animate_offset_max > 0)
-        {
-            animate_duration_count += clocker.lastDuration();
-            if (animate_duration_count > getUIConfig().text_flow_speed)
-            {
-                animate_duration_count = 0;
-                if (animate_offset + 1 >= animate_offset_max)
-                {
-                    animate_offset = 0;
-                    animate_forward = !animate_forward;
-                } else
-                {
-                    animate_offset += 1;
-                }
-            }
-            int prefix_pos = animate_offset;
-            if (!animate_forward)
-            {
-                prefix_pos = animate_offset_max - prefix_pos;
-            }
-            int end_pos = -1;
-            for (int i=prefix_pos + 1; i < _pos.size(); i++)
-            {
-                if (_width[i] - _width[prefix_pos] > max_w)
-                {
-                    end_pos = i - 1;
-                    break;
-                }
-            }
-            if (end_pos == -1)
-            {
-                return m_text.substr(_pos[prefix_pos]);
-            }
-            return m_text.substr(_pos[prefix_pos], _pos[end_pos] - _pos[prefix_pos]);
-        }
-        return m_text;
+        animate_offset_ = 0;
+        animate_forward_ = true;
     }
 
     TextBox::TextBox(float margin, const std::initializer_list<Text> &_texts): m_margin(margin), m_texts(_texts), m_h(0), m_w(0) {

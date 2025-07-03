@@ -38,7 +38,7 @@ public:
 
     void _setFont(const unsigned char *_font) override;
 
-    int _getFontWidth(const std::string &_text) override;
+    float _getFontWidth(const std::string &_text) override;
 
     unsigned char _getFontHeight() override;
 
@@ -68,7 +68,10 @@ public:
 
     void _drawRFrame(float _x, float _y, float _w, float _h, float _r) override;
 
-public:
+    void _setClipWindow(float x0, float y0, float x1, float y1) override;
+
+    void _setMaxClipWindow() override;
+
     virtual void _delay(unsigned long _mill) override;
 
     virtual int64_t _millis() override;

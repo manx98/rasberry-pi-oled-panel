@@ -32,7 +32,7 @@ void HALDreamCore::_setFont(const unsigned char *_font) {
   u8g2_SetFont(&canvasBuffer, _font);
 }
 
-int HALDreamCore::_getFontWidth(const std::string &_text) {
+float HALDreamCore::_getFontWidth(const std::string &_text) {
   return u8g2_GetUTF8Width(&canvasBuffer, _text.c_str());
 }
 
@@ -96,4 +96,14 @@ void HALDreamCore::_drawFrame(float _x, float _y, float _w, float _h) {
 
 void HALDreamCore::_drawRFrame(float _x, float _y, float _w, float _h, float _r) {
   u8g2_DrawRFrame(&canvasBuffer, (int16_t)std::round(_x), (int16_t)std::round(_y), (int16_t)std::round(_w), (int16_t)std::round(_h), (int16_t)std::round(_r));
+}
+
+void HALDreamCore::_setClipWindow(float x0, float y0, float x1, float y1)
+{
+  u8g2_SetClipWindow(&canvasBuffer, x0, y0, x1, y1);
+}
+
+void HALDreamCore::_setMaxClipWindow()
+{
+  u8g2_SetMaxClipWindow(&canvasBuffer);
 }
