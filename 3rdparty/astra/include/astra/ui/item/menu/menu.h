@@ -94,7 +94,7 @@ namespace astra {
         bool initFlag = false;
 
     public:
-        void init(const std::vector<float> &_camera); //每次打开页面都要调用一次
+        virtual void init(const std::vector<float> &_camera); //每次打开页面都要调用一次
         void deInit(); //每次关闭页面都要调用一次
 
     public:
@@ -155,10 +155,14 @@ namespace astra {
         bool onOpen() override;
 
         Menu* getSelected();
+
     public:
         void render(const std::vector<float> &_camera, Clocker &clocker) override;
 
+        void init(const std::vector<float>& _camera) override;
+
     private:
+        void updateTitleMaxWidth();
         Event *m_event = nullptr;
     };
 
@@ -171,8 +175,6 @@ namespace astra {
         typedef struct PositionForeground {
             float wBar, wBarTrg;  //进度条宽度
             float yBar, yBarTrg;  //进度条y坐标
-            float yArrow, yArrowTrg;
-            float yDottedLine, yDottedLineTrg;
         } PositionForeground;
 
         PositionForeground positionForeground{};
@@ -194,8 +196,6 @@ namespace astra {
         float getWidth() override;
 
         float getHeight() override;
-
-        void setMaxWidth(float max_w);
     };
 
 }

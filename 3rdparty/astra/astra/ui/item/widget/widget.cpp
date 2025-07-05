@@ -47,10 +47,6 @@ namespace astra {
         return true;
     }
 
-    void CheckBox::render(const std::vector<float> &_camera) {
-        //todo 选中复选框后弹出消息提醒 这玩意现在我倒觉得没啥必要 可以暂时不做
-    }
-
     Slider::Slider(const std::string &_title,
                    unsigned char _min,
                    unsigned char _max,

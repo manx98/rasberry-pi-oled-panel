@@ -102,8 +102,6 @@ namespace astra {
 
     public:
         void renderIndicator(float _x, float _y, const std::vector<float> &_camera) override;
-    public:
-        void render(const std::vector<float> &_camera) override;
 
         bool onOpen() override;
     };

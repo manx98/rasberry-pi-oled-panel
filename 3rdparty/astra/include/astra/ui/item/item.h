@@ -10,20 +10,23 @@
 #include "astra/config/config.h"
 #include "astra/utils/clocker.h"
 
-namespace astra {
-
-    class Item {
+namespace astra
+{
+    class Item
+    {
     protected:
         sys::config systemConfig;
         config astraConfig;
 
-        inline void updateConfig() {
+        inline void updateConfig()
+        {
             this->systemConfig = HAL::getSystemConfig();
             this->astraConfig = getUIConfig();
         }
     };
 
-    class Animation {
+    class Animation
+    {
     public:
         static void entry();
 
@@ -31,83 +34,44 @@ namespace astra {
 
         static void blur();
 
-        static void move(float &_pos, float _posTrg, float _speed, Clocker &clocker);
+        static void move(float& _pos, float _posTrg, float _speed, Clocker& clocker);
 
-        static void moveUniform(float &_pos, float _posTrg, float _speed, Clocker &clocker);
+        static void moveUniform(float& _pos, float _posTrg, float _speed, Clocker& clocker);
     };
 
-    inline void Animation::entry() {}
-
-//todo 未实现功能
-    inline void Animation::exit() {
-        static unsigned char fadeFlag = 1;
-        static unsigned char bufferLen = 8 * HAL::getBufferTileHeight() * HAL::getBufferTileWidth();
-        auto *bufferPointer = (unsigned char *) HAL::getCanvasBuffer();
-
-        HAL::delay(getUIConfig().fadeAnimationSpeed);
-
-        if (getUIConfig().lightMode)
-            switch (fadeFlag) {
-                case 1:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 != 0) bufferPointer[i] = bufferPointer[i] & 0xAA;
-                    break;
-                case 2:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 != 0) bufferPointer[i] = bufferPointer[i] & 0x00;
-                    break;
-                case 3:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 == 0) bufferPointer[i] = bufferPointer[i] & 0x55;
-                    break;
-                case 4:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 == 0) bufferPointer[i] = bufferPointer[i] & 0x00;
-                    break;
-                default:
-                    //放动画结束退出函数的代码
-                    fadeFlag = 0;
-                    break;
-            }
-        else
-            switch (fadeFlag) {
-                case 1:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 != 0) bufferPointer[i] = bufferPointer[i] | 0xAA;
-                    break;
-                case 2:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 != 0) bufferPointer[i] = bufferPointer[i] | 0x00;
-                    break;
-                case 3:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 == 0) bufferPointer[i] = bufferPointer[i] | 0x55;
-                    break;
-                case 4:
-                    for (uint16_t i = 0; i < bufferLen; ++i) if (i % 2 == 0) bufferPointer[i] = bufferPointer[i] | 0x00;
-                    break;
-                default:
-                    fadeFlag = 0;
-                    break;
-            }
-        fadeFlag++;
+    inline void Animation::entry()
+    {
     }
 
-    inline void Animation::blur() {
+    inline void Animation::blur()
+    {
         static unsigned char bufferLen = 8 * HAL::getBufferTileHeight() * HAL::getBufferTileWidth();
-        static auto *bufferPointer = (unsigned char *) HAL::getCanvasBuffer();
+        static auto* bufferPointer = (unsigned char*)HAL::getCanvasBuffer();
 
         for (uint16_t i = 0; i < bufferLen; ++i) bufferPointer[i] = bufferPointer[i] & (i % 2 == 0 ? 0x55 : 0xAA);
     }
 
-    inline void Animation::move(float &_pos, float _posTrg, float _speed, Clocker &clocker) {
+    inline void Animation::move(float& _pos, float _posTrg, float _speed, Clocker& clocker)
+    {
         auto update_times = clocker.lastDuration() / getUIConfig().perFrameMills;
-        if (update_times < 1) {
+        if (update_times < 1)
+        {
             update_times = 1;
         }
-        for (; update_times > 0 && _pos != _posTrg; update_times--) {
-            if (std::fabs(_pos - _posTrg) <= 1.0f) {
+        for (; update_times > 0 && _pos != _posTrg; update_times--)
+        {
+            if (std::fabs(_pos - _posTrg) <= 1.0f)
+            {
                 _pos = _posTrg;
-            } else {
+            }
+            else
+            {
                 _pos += (_posTrg - _pos) / ((100 - _speed) / 1.0f);
             }
         }
     }
 
-    inline void Animation::moveUniform(float &_pos, float _posTrg, float _speed, Clocker &clocker)
+    inline void Animation::moveUniform(float& _pos, float _posTrg, float _speed, Clocker& clocker)
     {
         _pos += clocker.lastDuration() / _speed;
         if (_pos >= _posTrg)

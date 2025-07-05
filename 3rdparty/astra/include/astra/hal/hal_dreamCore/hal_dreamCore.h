@@ -28,9 +28,9 @@ public:
 public:
     void *_getCanvasBuffer() override;
 
-    unsigned char _getBufferTileHeight() override;
+    int _getBufferTileHeight() override;
 
-    unsigned char _getBufferTileWidth() override;
+    int _getBufferTileWidth() override;
 
     void _canvasUpdate() override;
 

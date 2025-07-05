@@ -83,13 +83,13 @@ public:
 
   virtual void *_getCanvasBuffer() { return nullptr; }
 
-  static unsigned char getBufferTileHeight() { return get()->_getBufferTileHeight(); }
+  static int getBufferTileHeight() { return get()->_getBufferTileHeight(); }
 
-  virtual unsigned char _getBufferTileHeight() { return 0; }
+  virtual int _getBufferTileHeight() { return 0; }
 
-  static unsigned char getBufferTileWidth() { return get()->_getBufferTileWidth(); }
+  static int getBufferTileWidth() { return get()->_getBufferTileWidth(); }
 
-  virtual unsigned char _getBufferTileWidth() { return 0; }
+  virtual int _getBufferTileWidth() { return 0; }
 
   static void canvasUpdate() { get()->_canvasUpdate(); }
 

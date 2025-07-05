@@ -10,6 +10,7 @@ set(SRC
         ./astra/ui/item/menu/menu.cpp
         ./astra/ui/item/selector/selector.cpp
         ./astra/ui/item/widget/widget.cpp
+        ./astra/ui/item/item.cpp
         ./astra/ui/launcher.cpp
         ./astra/app/astra_app.cpp
         ./astra/utils/clocker.cpp

@@ -43,7 +43,6 @@ namespace astra {
     void Menu::init(const std::vector<float> &_camera) {}
 
     void Menu::deInit() {
-        //todo 未实现完全
         Animation::exit();
     }
 
@@ -151,11 +150,7 @@ namespace astra {
 
         this->position = {};
         this->positionForeground = {};
-        title.setMaxWidth(systemConfig.screenWeight
-            - astraConfig.listBarWeight
-            - astraConfig.checkBoxRightMargin
-            - astraConfig.checkBoxWidth
-            - astraConfig.listTextMargin * 2);
+        updateTitleMaxWidth();
     }
 
     List::List(const TextBox &_title, const std::vector<unsigned char> &_pic) : Menu(_title) {
@@ -169,10 +164,12 @@ namespace astra {
 
         this->position = {};
         this->positionForeground = {};
+        updateTitleMaxWidth();
     }
 
     List::List(const TextBox &_title, const std::vector<unsigned char> &_pic, Event *event) : List(_title, _pic) {
         m_event = event;
+        updateTitleMaxWidth();
     }
 
     void List::render(const std::vector<float> &_camera, Clocker &clocker) {
@@ -231,6 +228,29 @@ namespace astra {
 
         Animation::move(positionForeground.hBar, positionForeground.hBarTrg, astraConfig.listAnimationSpeed, clocker);
         Animation::move(positionForeground.xBar, positionForeground.xBarTrg, astraConfig.listAnimationSpeed, clocker);
+    }
+
+    void List::init(const std::vector<float>& _camera)
+    {
+        updateTitleMaxWidth();
+    }
+
+    void List::updateTitleMaxWidth()
+    {
+        if (childWidget.empty())
+        {
+            title.setMaxWidth(systemConfig.screenWeight
+                               - astraConfig.listBarWeight
+                               - astraConfig.checkBoxRightMargin
+                               - astraConfig.listTextMargin * 2);
+        } else
+        {
+            title.setMaxWidth(systemConfig.screenWeight
+                            - astraConfig.listBarWeight
+                            - astraConfig.checkBoxRightMargin
+                            - astraConfig.checkBoxWidth
+                            - astraConfig.listTextMargin * 2);
+        }
     }
 
     bool List::onOpen() {
@@ -299,18 +319,8 @@ namespace astra {
 
     void Tile::forePosInit() {
         positionForeground.yBarTrg = 0;
-        positionForeground.yArrowTrg = systemConfig.screenHeight - astraConfig.tileArrowBottomMargin;
-        positionForeground.yDottedLineTrg = systemConfig.screenHeight - astraConfig.tileDottedLineBottomMargin;
-
         if (astraConfig.tileUnfold) positionForeground.wBar = 0;  //bar unfold from left.
         else positionForeground.wBar = positionForeground.wBarTrg;
-
-        //position.y = -astraConfig.tilePicHeight * 2;
-
-        //始终执行的坐标初始化
-        //底部箭头和虚线的初始化
-        positionForeground.yArrow = systemConfig.screenHeight;
-        positionForeground.yDottedLine = systemConfig.screenHeight;
 
         //顶部进度条的从上方滑入的初始化
         positionForeground.yBar = 0 - astraConfig.tileBarHeight; //注意这里是坐标从屏幕外滑入 而不是height从0变大
@@ -364,40 +374,6 @@ namespace astra {
         positionForeground.wBarTrg = (selectIndex + 1) * ((float) systemConfig.screenWeight / getItemNum());
         HAL::drawBox(0, positionForeground.yBar, positionForeground.wBar, astraConfig.tileBarHeight);
 
-        //draw left arrow.
-        HAL::drawHLine(astraConfig.tileArrowMargin, positionForeground.yArrow, astraConfig.tileArrowWidth);
-        HAL::drawPixel(astraConfig.tileArrowMargin + 1, positionForeground.yArrow + 1);
-        HAL::drawPixel(astraConfig.tileArrowMargin + 2, positionForeground.yArrow + 2);
-        HAL::drawPixel(astraConfig.tileArrowMargin + 1, positionForeground.yArrow - 1);
-        HAL::drawPixel(astraConfig.tileArrowMargin + 2, positionForeground.yArrow - 2);
-
-        //draw right arrow.
-        HAL::drawHLine(systemConfig.screenWeight - astraConfig.tileArrowWidth - astraConfig.tileArrowMargin,
-                       positionForeground.yArrow,
-                       astraConfig.tileArrowWidth);
-        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth, positionForeground.yArrow + 1);
-        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth - 1, positionForeground.yArrow + 2);
-        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth, positionForeground.yArrow - 1);
-        HAL::drawPixel(systemConfig.screenWeight - astraConfig.tileArrowWidth - 1, positionForeground.yArrow - 2);
-
-        //draw left button.
-        HAL::drawHLine(astraConfig.tileBtnMargin, positionForeground.yArrow + 2, 9);
-        HAL::drawBox(astraConfig.tileBtnMargin + 2, positionForeground.yArrow + 2 - 4, 5, 4);
-
-        //draw the right button.
-        HAL::drawHLine(systemConfig.screenWeight - astraConfig.tileBtnMargin - 9, positionForeground.yArrow + 2, 9);
-        HAL::drawBox(systemConfig.screenWeight - astraConfig.tileBtnMargin - 9 + 2,
-                     positionForeground.yArrow + 2 - 4,
-                     5,
-                     4);
-
-        //draw dotted line.
-        HAL::drawHDottedLine(0, positionForeground.yDottedLine, systemConfig.screenWeight);
-
-        Animation::move(positionForeground.yDottedLine, positionForeground.yDottedLineTrg,
-                        astraConfig.tileAnimationSpeed, clocker);
-        Animation::move(positionForeground.yArrow, positionForeground.yArrowTrg, astraConfig.tileAnimationSpeed,
-                        clocker);
         Animation::move(positionForeground.wBar, positionForeground.wBarTrg, astraConfig.tileAnimationSpeed, clocker);
         Animation::move(positionForeground.yBar, positionForeground.yBarTrg, astraConfig.tileAnimationSpeed, clocker);
     }
@@ -408,9 +384,5 @@ namespace astra {
 
     float Tile::getHeight() {
         return 0;
-    }
-
-    void Tile::setMaxWidth(float max_w)
-    {
     }
 }

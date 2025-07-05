@@ -10,11 +10,11 @@ void *HALDreamCore::_getCanvasBuffer() {
   return u8g2_GetBufferPtr(&canvasBuffer);
 }
 
-unsigned char HALDreamCore::_getBufferTileHeight() {
+int HALDreamCore::_getBufferTileHeight() {
   return u8g2_GetBufferTileHeight(&canvasBuffer);
 }
 
-unsigned char HALDreamCore::_getBufferTileWidth() {
+int HALDreamCore::_getBufferTileWidth() {
   return u8g2_GetBufferTileWidth(&canvasBuffer);
 }
 

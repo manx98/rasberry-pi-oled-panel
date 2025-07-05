@@ -41,12 +41,8 @@ struct config {
   float tilePicWidth = 30;
   float tilePicHeight = 30;
   float tilePicMargin = 8;
-  float tilePicTopMargin = 8; //图标上边距
-  float tileArrowWidth = 6;
-  float tileArrowMargin = 4; //箭头边距
+  float tilePicTopMargin = 12; //图标上边距
 
-  float tileDottedLineBottomMargin = 18; //虚线下边距(top: 46)
-  float tileArrowBottomMargin = 8; //箭头下边距(top: 56)
   float tileTextBottomMargin = 4; //标题下边距(top: 52)
 
   float tileBarHeight = 2; //磁贴进度条高度
@@ -55,8 +51,6 @@ struct config {
   float tileSelectBoxMargin = 3; //选择框边距
   float tileSelectBoxWidth = tileSelectBoxMargin * 2 + tilePicWidth; //选择框宽
   float tileSelectBoxHeight = tileSelectBoxMargin * 2 + tilePicHeight; //选择框高
-
-  float tileBtnMargin = 16; //按钮边距
 
   float popMargin = 4; //弹窗边距
   float popRadius = 2; //弹窗圆角半径
@@ -81,7 +75,9 @@ struct config {
   float progressInfAnimationSpeed = 25; //无限滚动条速度
   float number_input_margin_x = 4; // 数字输入框左右边距
   float text_flow_speed = 30; // 文本滚动速度(ms/px)
-  float text_flow_boundary_wait_time = 500; // 文本滚动边界等待时间
+  float text_flow_boundary_wait_time = 500; // 文本滚动边界等待时间ms
+  float list_icon_size = 16; // 列表图标宽度
+  float list_icon_margin = 3; // 列表图标边距
 };
 
 static config &getUIConfig() {
