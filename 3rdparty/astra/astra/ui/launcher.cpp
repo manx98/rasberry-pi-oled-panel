@@ -104,6 +104,14 @@ namespace astra {
         currentMenu->deInit();  //先析构（退场动画）再挪动指针
 
         currentMenu = currentMenu->getNextMenu();
+        // Tile pages can leave the shared camera shifted far to the left.
+        // On a 128-pixel OLED this initially clips *all* network list text,
+        // while the fixed right-hand scrollbar remains visible. A list opens
+        // at x=0 immediately; vertical scroll memory is restored separately.
+        if (currentMenu->getType() == WIDGET_TYPE_LIST &&
+            currentMenu->getPreview()->getType() == WIDGET_TYPE_TILE) {
+            camera->goDirect(0, 0);
+        }
         currentMenu->forePosInit();
         currentMenu->childPosInit(camera->getPosition());
 

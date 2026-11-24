@@ -1,6 +1,7 @@
 #include "astra/ui/item/widget/widget.h"
 
 #include <cmath>
+#include <algorithm>
 #include <utility>
 #include "astra/ui/launcher.h"
 
@@ -135,7 +136,18 @@ namespace astra {
         HAL::setFont(m_font_);
         if (animate_offset_max_ > 0)
         {
-            HAL::setClipWindow(_x, _y - m_h_ + 2, _x + m_max_w_, _y + 2);
+            // U8g2 clip coordinates are unsigned. A multiline row moving
+            // onto/off the screen may have a negative y coordinate; passing
+            // it through wraps the clipping rectangle and hides text.
+            const auto screen = HAL::getSystemConfig();
+            const float width = static_cast<float>(screen.screenWeight);
+            const float height = static_cast<float>(screen.screenHeight);
+            const float clipLeft = std::clamp(_x, 0.0f, width);
+            const float clipTop = std::clamp(_y - m_h_ + 2, 0.0f, height);
+            const float clipRight = std::clamp(_x + m_max_w_, 0.0f, width);
+            const float clipBottom = std::clamp(_y + 2, 0.0f, height);
+            if (clipLeft >= clipRight || clipTop >= clipBottom) return;
+            HAL::setClipWindow(clipLeft, clipTop, clipRight, clipBottom);
             if (!allowScroll) {
                 // Keep every unselected Wi-Fi row at the beginning of its
                 // SSID. Restart from the first character when selected.

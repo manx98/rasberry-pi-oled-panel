@@ -22,18 +22,26 @@ struct MarqueeTestHal final : HAL {
     float drawX = -1;
     float clipLeft = -1;
     float clipRight = -1;
+    float clipTop = -1;
+    float clipBottom = -1;
     int clips = 0;
     int clipRestores = 0;
+    int textDraws = 0;
     void _setFont(const unsigned char *) override {}
     float _getFontWidth(const std::string &s) override {
         return static_cast<float>(s.size()) * 8;
     }
     unsigned char _getFontHeight() override { return 9; }
     int64_t _millis() override { return clockMs; }
-    void _drawChinese(float x, float, const std::string &) override { drawX = x; }
-    void _setClipWindow(float left, float, float right, float) override {
+    void _drawChinese(float x, float, const std::string &) override {
+        drawX = x;
+        ++textDraws;
+    }
+    void _setClipWindow(float left, float top, float right, float bottom) override {
         clipLeft = left;
+        clipTop = top;
         clipRight = right;
+        clipBottom = bottom;
         ++clips;
     }
     void _setMaxClipWindow() override { ++clipRestores; }
@@ -79,5 +87,16 @@ int main() {
     shortLabel.draw(4, 24, clock, true);
     assert(hal->drawX == 4);
     assert(hal->clips == clipsBefore);
+
+    // Text moving into view from above must not send negative clip bounds to
+    // the SH1106's unsigned U8g2 clip API (which would wrap and hide labels).
+    longLabel.draw(4, 5, clock, false);
+    assert(hal->clipTop == 0);
+    assert(hal->clipBottom == 7);
+    assert(hal->clips == hal->clipRestores);
+    const int drawCount = hal->textDraws;
+    longLabel.draw(4, -8, clock, false); // Entirely outside the viewport.
+    assert(hal->textDraws == drawCount);
+    assert(hal->clips == hal->clipRestores);
     HAL::destroy();
 }

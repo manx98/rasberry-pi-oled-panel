@@ -3079,7 +3079,7 @@ int wiringPiGlobalMemoryAccess(void)
 
   piBoard();
   if (piRP1Model()) {
-    GetRP1Memory(pciemem_RP1, sizeof(pciemem_RP1));
+    GetRP1Memory();
     gpiomemGlobal = pciemem_RP1;
     MMAP_size = pciemem_RP1_Size;
     BaseAddr  = 0x00000000;

@@ -57,6 +57,7 @@ set(PANEL_SRCS panel/main.cpp
         panel/system.h
         panel/network.cpp
         panel/network.h
+        panel/network_list_layout.h
         utils/wifi.cpp utils/wifi.h
         utils/nm-shared-utils.c utils/nm-shared-utils.h
         utils/nm-utils.c utils/nm-utils.h

@@ -7,6 +7,7 @@
 #include <exception>
 #include <cstdio>
 #include "panel/network_confirmation.h"
+#include "panel/network_list_layout.h"
 #include <atomic>
 #include "utils/utils.h"
 #include "text.h"
@@ -52,15 +53,31 @@ bool NetWorkDeviceListEvent::beforeOpen(astra::Menu *current) {
     current->clear();
     current->selectIndex = 0;
     current->resetCameraMemoryPos();
+    current->initFlag = false;
+    current->listItemGap = 2.0f;
+    // Only the focused interface is allowed to scroll an unusually long
+    // address/name; unrelated rows must remain readable and stationary.
+    current->scrollSelectedTextOnly = true;
     auto font = astra::getUIConfig().mainFont;
+    const auto &ui = astra::getUIConfig();
+    // Leave enough horizontal room for the enable/disable checkbox and the
+    // right-side scrollbar. Recalculate after attaching the widget as Astra
+    // initially measures a List before it owns the checkbox.
+    const float textWidth = screenWeight - ui.listBarWeight - ui.checkBoxRightMargin
+                            - ui.checkBoxWidth - 2.0f * ui.listTextMargin;
     for (const auto &item : infos) {
-        astra::TextBox text{1, {{"- " + item.first, font}}};
-        if (!item.second.inet6.empty()) text.add({"  " + item.second.inet6, font});
-        if (!item.second.inet.empty()) text.add({"  " + item.second.inet, font});
-        current->addItem(new astra::List(text),
+        const auto row = network_list::compactRow(item.first, item.second.inet,
+                                                  item.second.inet6);
+        astra::TextBox text{1, {{row.name, font}}};
+        // Do not create a three-line list item with full IPv4 + IPv6. Three
+        // interfaces including a down interface now fit within 64 pixels.
+        if (!row.address.empty()) text.add({row.address, font});
+        auto *entry = new astra::List(text);
+        current->addItem(entry,
                          new astra::CheckBox(item.second.up, [this, name = item.first](bool &checked) {
                              enable_device(name, checked);
                          }));
+        entry->title.setMaxWidth(textWidth);
     }
     if (infos.empty()) current->addItem(new astra::List({0, {{"没有网络接口", font}}}));
     return true;

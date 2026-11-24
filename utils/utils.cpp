@@ -81,29 +81,6 @@ namespace RPI {
         return true;
     }
 
-    static bool networkIsUp(const char *interface_name) {
-        struct ifreq ifr{};
-        int sockfd;
-        // 打开一个套接字
-        sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-        if (sockfd < 0) {
-            spdlog::error("Failed to open socket");
-            return false;
-        }
-        // 设置网卡名称
-        strncpy(ifr.ifr_name, interface_name, IFNAMSIZ);
-        // 获取网卡状态
-        if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {
-            spdlog::error("Failed to get interface flags");
-            close(sockfd);
-            return false;
-        }
-        // 检查网卡状态
-        bool up = ifr.ifr_flags & IFF_UP;
-        close(sockfd);
-        return up;
-    }
-
     std::map<std::string, NetworkInfo> getNetworkInfos() {
         struct ifaddrs *ifaddr, *ifa;
         int family, s;
@@ -115,16 +92,13 @@ namespace RPI {
         }
         std::map<std::string, NetworkInfo> info_map;
         for (ifa = ifaddr; ifa != nullptr; ifa = ifa->ifa_next) {
-            if (ifa->ifa_addr == nullptr) {
-                continue;
-            }
-            auto info_node = info_map.find(ifa->ifa_name);
-            if (info_node == info_map.end()) {
-                info_map.emplace(ifa->ifa_name, NetworkInfo{
-                        .up = networkIsUp(ifa->ifa_name)
-                });
-                info_node = info_map.find(ifa->ifa_name);
-            }
+            if (!ifa->ifa_name) continue;
+            // Register every interface, including interfaces that are DOWN
+            // or have no assigned IPv4/IPv6 address yet.
+            auto &info = info_map[ifa->ifa_name];
+            info.name = ifa->ifa_name;
+            info.up = (ifa->ifa_flags & IFF_UP) != 0;
+            if (!ifa->ifa_addr) continue;
             family = ifa->ifa_addr->sa_family;
             if (family == AF_INET || family == AF_INET6) {
                 s = getnameinfo(ifa->ifa_addr,
@@ -133,13 +107,12 @@ namespace RPI {
                                 nullptr, 0, NI_NUMERICHOST);
                 if (s != 0) {
                     spdlog::error("Failed to get network info: {}", gai_strerror(s));
-                    return {};
+                    continue; // One invalid address must not hide every NIC.
                 }
-                info_node->second.name = ifa->ifa_name;
                 if (family == AF_INET) {
-                    info_node->second.inet = host;
+                    info.inet = host;
                 } else {
-                    info_node->second.inet6 = host;
+                    info.inet6 = host;
                 }
             }
         }
