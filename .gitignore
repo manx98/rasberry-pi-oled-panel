@@ -1,2 +1,6 @@
 .idea
 cmake-build-debug
+# Local cross-build output and mounted remote root filesystem
+build*/
+.sysroot/
+.tools/

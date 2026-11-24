@@ -39,11 +39,13 @@ namespace astra {
     }
 
     bool CheckBox::onOpen() {
-        value = !value;
-        isCheck = !isCheck;
-        if (m_on_change) {
-            m_on_change(isCheck);
-        }
+        // The callback can reject the change (e.g. a cancelled network
+        // confirmation) or revert it after an IO failure. Commit the actual
+        // result to BOTH fields, so the indicator never gets out of sync.
+        bool next = !isCheck;
+        if (m_on_change) m_on_change(next);
+        isCheck = next;
+        value = next;
         return true;
     }
 

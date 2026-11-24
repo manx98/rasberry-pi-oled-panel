@@ -4,12 +4,19 @@
 
 #include "astra/ui/launcher.h"
 #include "astra/utils/clocker.h"
+#include "astra/ui/navigation_idle_timer.h"
+#include <chrono>
 
 namespace astra {
     Menu *Launcher::currentMenu = {};
     Widget *Launcher::currentWidget = {};
     Selector *Launcher::selector = {};
     Camera *Launcher::camera = {};
+    std::function<void()> Launcher::rootCancelHandler = {};
+
+    void Launcher::setRootCancelHandler(std::function<void()> handler) {
+        rootCancelHandler = std::move(handler);
+    }
 
     void Launcher::popInfo(TextBox info, uint16_t _time) {
         float wPop = info.getWidth() + 2 * getUIConfig().popMargin;  //宽度
@@ -133,23 +140,16 @@ namespace astra {
     }
 
     key::keyIndex Launcher::getKey() {
-        static Clocker key_clocker;
-        auto value = key::KEY_NUM;
-        if (key_clocker.currentDuration() > 50) {
-            if (HAL::keyScan()) {
-                if (HAL::getKeyMap()[key::KEY_PREV] == key::CLICK) {
-                    value = key::KEY_PREV;
-                } else if (HAL::getKeyMap()[key::KEY_NEXT] == key::CLICK) {
-                    value = key::KEY_NEXT;
-                } else if (HAL::getKeyMap()[key::KEY_CONFIRM] == key::CLICK) {
-                    value = key::KEY_CONFIRM;
-                } else if (HAL::getKeyMap()[key::KEY_CANCEL] == key::CLICK) {
-                    value = key::KEY_CANCEL;
-                }
-            }
-            key_clocker.reset();
-        }
-        return value;
+        // Input is debounced by its HAL; avoid an additional 50ms gate.
+        // For SH1106 the GPIO state machine runs in a separate thread so
+        // even slow I2C frame transfers cannot miss physical presses.
+        if (!HAL::keyScan()) return key::KEY_NUM;
+        const auto *keys = HAL::getKeyMap();
+        if (keys[key::KEY_PREV] == key::CLICK) return key::KEY_PREV;
+        if (keys[key::KEY_NEXT] == key::CLICK) return key::KEY_NEXT;
+        if (keys[key::KEY_CONFIRM] == key::CLICK) return key::KEY_CONFIRM;
+        if (keys[key::KEY_CANCEL] == key::CLICK) return key::KEY_CANCEL;
+        return key::KEY_NUM;
     }
 
     void Launcher::update(bool clear, const std::function<void(Clocker &clocker, key::keyIndex active_key)> &render) {
@@ -162,7 +162,18 @@ namespace astra {
     }
 
     void Launcher::update() {
+        static NavigationIdleTimer idleTimer;
         update(true, [&](Clocker &render_clocker, key::keyIndex active_key) {
+            const auto now = std::chrono::steady_clock::now().time_since_epoch();
+            const auto nowMs = static_cast<std::uint64_t>(
+                std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
+            // The first key after inactivity both restores navigation chrome
+            // and performs its normal action. Only the system-status page
+            // enables the policy; other menus retain their normal UI.
+            currentMenu->navigationHidden = idleTimer.shouldHide(
+                currentMenu, currentMenu->hideNavigationAfterIdle,
+                active_key != key::KEY_NUM, nowMs,
+                currentMenu->navigationIdleTimeoutMs);
             currentMenu->doRender(camera->getPosition(), render_clocker);
             if (currentWidget != nullptr) currentWidget->render(camera->getPosition());
             selector->render(camera->getPosition(), render_clocker);
@@ -181,7 +192,11 @@ namespace astra {
                 }
                     break;
                 case key::KEY_CANCEL:
-                    close(); //退出当前项目
+                    if (currentMenu && currentMenu->getPreview() == nullptr) {
+                        if (rootCancelHandler) rootCancelHandler();
+                    } else {
+                        close(); // Secondary pages retain their back behavior.
+                    }
                     break;
                 case key::KEY_NUM:
                     break;

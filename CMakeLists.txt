@@ -1,18 +1,51 @@
-cmake_minimum_required(VERSION 3.27)
+cmake_minimum_required(VERSION 3.22)
 project(raspberry_pi_oled_panel)
 
 set(CMAKE_CXX_STANDARD 17)
 
-if (CMAKE_SYSROOT)
-    set(ENV{PKG_CONFIG_PATH} "$ENV{PKG_CONFIG_PATH}:${CMAKE_SYSROOT}/usr/lib/${CMAKE_SYSTEM_PROCESSOR}-linux-gnu/pkgconfig")
-endif ()
-
 add_compile_definitions(U8G2_USE_DYNAMIC_ALLOC=1)
-option(USE_SDL2 "build with SDL2" OFF)
+option(USE_SDL2 "Build using SDL2 simulator" OFF)
+option(PANEL_ENABLE_SENSORS "Enable all optional sensor/actuator devices" OFF)
+option(PANEL_ENABLE_INA226 "Enable INA226 power monitor" OFF)
+option(PANEL_ENABLE_SGP30 "Enable SGP30 air quality sensor" OFF)
+option(PANEL_ENABLE_SHT3X "Enable SHT3x temperature/humidity sensor" OFF)
+option(PANEL_ENABLE_BMP280 "Enable BMP280 barometric pressure sensor" OFF)
+option(PANEL_ENABLE_FAN "Build GPIO12 temperature-controlled cooling fan" ON)
+option(PANEL_ENABLE_RELAY "Enable relay outputs" OFF)
+if(PANEL_ENABLE_SENSORS)
+    foreach(feature INA226 SGP30 SHT3X BMP280 FAN RELAY)
+        set(PANEL_ENABLE_${feature} ON)
+    endforeach()
+endif()
+set(PANEL_OPTIONAL_HARDWARE OFF)
+foreach(feature INA226 SGP30 SHT3X BMP280 RELAY)
+    if(PANEL_ENABLE_${feature})
+        set(PANEL_OPTIONAL_HARDWARE ON)
+    endif()
+endforeach()
+# NetworkManager and Wi-Fi menus are essential; do not allow disabling.
+set(PANEL_ENABLE_NETWORK ON CACHE BOOL "Required: build Wi-Fi/NetworkManager features" FORCE)
+option(PANEL_ENABLE_RPC "Build unused gRPC server library" OFF)
+
 
 set(PANEL_SRCS panel/main.cpp
         panel/astra_logo.cpp
         panel/astra_rocket.cpp
+        panel/power_dialog.cpp
+        panel/power_dialog.h
+        panel/power_dialog_state.h
+        panel/network_confirmation.cpp
+        panel/network_confirmation.h
+        panel/network_confirmation_state.h
+        panel/status_idle_config.cpp
+        panel/status_idle_config.h
+        panel/status_idle_settings.cpp
+        panel/status_idle_settings.h
+        panel/display/orientation_config.cpp
+        panel/display/orientation_config.h
+        panel/display/orientation_policy.h
+        panel/display/orientation_settings.cpp
+        panel/display/orientation_settings.h
         sh1106_hal/sh1106_hal.cpp
         sh1106_hal/sh1106_hal.h
         icons/app_icons.cpp
@@ -20,18 +53,24 @@ set(PANEL_SRCS panel/main.cpp
         utils/utils.cpp
         utils/utils.h
         panel/text.h
-        utils/wifi.cpp
-        utils/wifi.h
-        utils/nm-shared-utils.c
-        utils/nm-shared-utils.h
-        utils/nm-utils.c
-        utils/nm-utils.h
-        panel/wifi.cpp
-        panel/wifi.h
         panel/system.cpp
         panel/system.h
         panel/network.cpp
-        panel/network.h)
+        panel/network.h
+        utils/wifi.cpp utils/wifi.h
+        utils/nm-shared-utils.c utils/nm-shared-utils.h
+        utils/nm-utils.c utils/nm-utils.h
+        panel/wifi.cpp panel/wifi.h)
+if(PANEL_ENABLE_FAN AND NOT USE_SDL2)
+    list(APPEND PANEL_SRCS
+        panel/fan/fan_controller.cpp
+        panel/fan/fan_settings.cpp
+        panel/fan/fan_controller.h
+        panel/fan/fan_settings.h
+        panel/fan/fan_policy.h)
+    add_compile_definitions(PANEL_ENABLE_FAN=1)
+endif()
+
 if(USE_SDL2)
     message("=== USE_SDL ===")
     find_package(SDL2 REQUIRED)
@@ -42,13 +81,13 @@ if(USE_SDL2)
     include_directories(${SDL2_INCLUDE_DIRS})
 endif ()
 
-add_subdirectory(3rdparty/u8g2-arm-linux)
+add_subdirectory(3rdparty/u8g2-arm-linux EXCLUDE_FROM_ALL)
 include_directories(3rdparty/u8g2-arm-linux/include)
 
 add_subdirectory(3rdparty/astra)
 include_directories(3rdparty/astra/include)
 
-add_compile_definitions(-DSPDLOG_COMPILED_LIB)
+add_compile_definitions(SPDLOG_COMPILED_LIB)
 add_subdirectory(3rdparty/spdlog)
 include_directories(3rdparty/spdlog/include)
 
@@ -59,9 +98,20 @@ include_directories(${CMAKE_SOURCE_DIR})
 
 add_executable(${PROJECT_NAME} ${PANEL_SRCS})
 
+# Ubuntu's older cross-GCC can prefer its bundled glibc 2.35 over the
+# target Debian 13 glibc. Put the live SSHFS sysroot libraries first, so
+# libnm/GLib are resolved against the same libc as the actual Pi.
+if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" AND CMAKE_SYSROOT)
+    target_link_options(${PROJECT_NAME} PRIVATE
+        "-L${CMAKE_SYSROOT}/lib/aarch64-linux-gnu"
+        "-L${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu"
+        "-Wl,-rpath-link,${CMAKE_SYSROOT}/lib/aarch64-linux-gnu"
+        "-Wl,-rpath-link,${CMAKE_SYSROOT}/usr/lib/aarch64-linux-gnu")
+endif()
+
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(LIBNM REQUIRED libnm)
-list(APPEND PANEL_LIBS ${LIBNM_LIBRARIES})
+pkg_check_modules(LIBNM REQUIRED IMPORTED_TARGET libnm)
+list(APPEND PANEL_LIBS PkgConfig::LIBNM)
 
 set(GRPC_ROOT_DIR "" CACHE PATH "Custom gRPC deps dir")
 if ( NOT "${GRPC_ROOT_DIR}" STREQUAL "" )
@@ -74,12 +124,16 @@ if ( NOT "${GRPC_ROOT_DIR}" STREQUAL "" )
     set(absl_DIR "${GRPC_ROOT_DIR}/lib/cmake/absl")
     set(utf8_range_DIR "${GRPC_ROOT_DIR}/lib/cmake/utf8_range")
 endif ()
-add_subdirectory(common)
-add_subdirectory(rpc)
-
-foreach (LIBNM_INCLUDE_DIR ${LIBNM_INCLUDE_DIRS})
-    target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_SYSROOT}/${LIBNM_INCLUDE_DIR})
-endforeach ()
+if(PANEL_OPTIONAL_HARDWARE)
+    add_subdirectory(common)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PANEL_ENABLE_SENSORS=1)
+    list(APPEND PANEL_LIBS common)
+endif()
+if(PANEL_ENABLE_RPC)
+    add_subdirectory(rpc)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE PANEL_ENABLE_RPC=1)
+    list(APPEND PANEL_LIBS rpi_rpc)
+endif()
 
 # 引入 CheckSymbolExists 模块
 include(CheckSymbolExists)
@@ -106,9 +160,9 @@ configure_file(
 
 # 添加头文件搜索路径
 include_directories("${CMAKE_CURRENT_BINARY_DIR}")
-add_dependencies(${PROJECT_NAME} rpi_rpc)
+# The core panel does not require the RPC server or optional sensors.
 if (USE_SDL2)
     target_compile_definitions(${PROJECT_NAME} PUBLIC -DUSE_SDL2)
 endif ()
-list(APPEND PANEL_LIBS astra u8g2-arm-linux spdlog rpi_rpc common wiringPi)
+list(APPEND PANEL_LIBS astra u8g2-arm-linux spdlog wiringPi)
 target_link_libraries(${PROJECT_NAME} ${PANEL_LIBS})

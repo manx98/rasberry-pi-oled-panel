@@ -18,7 +18,9 @@ namespace astra {
         } else if (menu->getType() == WIDGET_TYPE_LIST) {
             auto &childMenu = menu->childMenu[menu->selectIndex];
             xTrg = childMenu->position.xTrg - astraConfig.selectorMargin;
-            yTrg = childMenu->position.yTrg;
+            // The compact system status rows need a slightly lower selection
+            // background. Other Astra lists keep their original positions.
+            yTrg = childMenu->position.yTrg + menu->listSelectorTopInset;
         }
     }
 
@@ -90,6 +92,10 @@ namespace astra {
         Animation::move(h, hTrg(), astraConfig.selectorHeightAnimationSpeed, clocker);
         Animation::move(w, wTrg(), astraConfig.selectorWidthAnimationSpeed, clocker);
 
+        // Keep interpolation state current, but omit the selection rectangle
+        // while the status page is passively displaying live statistics.
+        if (menu->navigationHidden) return;
+
         if (menu->getType() == WIDGET_TYPE_TILE) {
             Animation::move(yText, yTextTrg, astraConfig.selectorYAnimationSpeed, clocker);
 
@@ -144,7 +150,11 @@ namespace astra {
                 return astraConfig.tileSelectBoxHeight;
             } else if (menu->getType() == WIDGET_TYPE_LIST) {
                 auto &childMenu = menu->childMenu[menu->selectIndex];
-                return childMenu->title.getHeight() + astraConfig.listTextMargin;
+                const float gap = menu->listItemGap >= 0
+                                      ? menu->listItemGap : astraConfig.listTextMargin;
+                // Subtract the top inset so the highlight does not overlap
+                // the next text row when the vertical spacing is small.
+                return childMenu->title.getHeight() + gap - menu->listSelectorTopInset;
             }
         }
         return 0;

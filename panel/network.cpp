@@ -3,41 +3,43 @@
 //
 
 #include <thread>
+#include <utility>
+#include <exception>
+#include <cstdio>
+#include "panel/network_confirmation.h"
 #include <atomic>
 #include "utils/utils.h"
 #include "text.h"
 #include "network.h"
 
 void NetWorkDeviceListEvent::enable_device(const std::string &device, bool &enable) {
-    if (!RPI::setIpLinkUp(device.c_str(), enable)) {
-        enable = !enable;
-        astra::Launcher::popInfo(
-                {1, {{enable ? ENABLE_FAIL_TEXT : DISABLE_FAIL_TEXT, astra::getUIConfig().mainFont}}}, 600);
-    } else {
-        astra::Launcher::popInfo(
-                {1, {{enable ? ENABLE_SUCCESS_TEXT : DISABLE_SUCCESS_TEXT, astra::getUIConfig().mainFont}}}, 600);
+    const bool requested = enable;
+    // Never modify an interface without a second, explicit user action.
+    // Disabling an SSH-carrying interface can immediately sever remote access.
+    if (!confirmNetworkInterfaceChange(device, requested)) {
+        enable = !requested; // Keep the checkbox in its original state.
+        return;
     }
+
+    if (!RPI::setIpLinkUp(device.c_str(), requested)) {
+        enable = !requested; // Only revert the visual state after failure.
+        astra::Launcher::popInfo(
+            {1, {{requested ? ENABLE_FAIL_TEXT : DISABLE_FAIL_TEXT, astra::getUIConfig().mainFont}}}, 800);
+        return;
+    }
+    astra::Launcher::popInfo(
+        {1, {{requested ? ENABLE_SUCCESS_TEXT : DISABLE_SUCCESS_TEXT, astra::getUIConfig().mainFont}}}, 800);
 }
 
 bool NetWorkDeviceListEvent::beforeOpen(astra::Menu *current) {
     astra::TextBox title(0, {{LOADING_DATA_TEXT, astra::getUIConfig().mainFont}});
     std::atomic<bool> finished{false};
+    std::map<std::string, RPI::NetworkInfo> infos;
     std::thread scan_thread([&]() {
-        auto infos = RPI::getNetworkInfos();
-        current->clear();
-        auto font = astra::getUIConfig().mainFont;
-        for (const auto &item: infos) {
-            astra::TextBox text{1, {{"- " + item.first, font}}};
-            if (!item.second.inet6.empty()) {
-                text.add({"  " + item.second.inet6, font});
-            }
-            if (!item.second.inet.empty()) {
-                text.add({"  " + item.second.inet, font});
-            }
-            current->addItem(new astra::List(text),
-                             new astra::CheckBox(item.second.up, [this, name = item.first](bool &checked) {
-                                 enable_device(name, checked);
-                             }));
+        try {
+            infos = RPI::getNetworkInfos();
+        } catch (const std::exception &e) {
+            std::fprintf(stderr, "Read network interfaces failed: %s\n", e.what());
         }
         finished = true;
     });
@@ -47,6 +49,20 @@ bool NetWorkDeviceListEvent::beforeOpen(astra::Menu *current) {
                                   return !finished;
                               });
     scan_thread.join();
+    current->clear();
+    current->selectIndex = 0;
+    current->resetCameraMemoryPos();
+    auto font = astra::getUIConfig().mainFont;
+    for (const auto &item : infos) {
+        astra::TextBox text{1, {{"- " + item.first, font}}};
+        if (!item.second.inet6.empty()) text.add({"  " + item.second.inet6, font});
+        if (!item.second.inet.empty()) text.add({"  " + item.second.inet, font});
+        current->addItem(new astra::List(text),
+                         new astra::CheckBox(item.second.up, [this, name = item.first](bool &checked) {
+                             enable_device(name, checked);
+                         }));
+    }
+    if (infos.empty()) current->addItem(new astra::List({0, {{"没有网络接口", font}}}));
     return true;
 }
 

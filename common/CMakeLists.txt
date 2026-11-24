@@ -1,26 +1,28 @@
-add_library(common STATIC
-        BMP280.cpp
-        BMP280.h
-        fan.cpp
-        fan.h
-        i2c.cpp
-        i2c.h
-        INA226.cpp
-        INA226.h
-        relay.cpp
-        relay.h
-        sensor.cpp
-        sensor.h
-        SGP30.cpp
-        SGP30.h
-        sht3x.cpp
-        sht3x.h
-        spi.cpp
-        spi.h
-        utils.cpp
-        utils.h
-        log.h
-        log.cpp
-)
+# Only include drivers explicitly enabled by build options.
+set(COMMON_SRCS i2c.cpp spi.cpp utils.cpp log.cpp sensor.cpp)
+foreach(feature INA226 SGP30 SHT3X BMP280 RELAY)
+    if(PANEL_ENABLE_${feature})
+        if(feature STREQUAL "SHT3X")
+            list(APPEND COMMON_SRCS sht3x.cpp)
+        else()
+            string(TOLOWER "${feature}" lower)
+            if(feature STREQUAL "BMP280")
+                list(APPEND COMMON_SRCS BMP280.cpp)
+            elseif(feature STREQUAL "INA226")
+                list(APPEND COMMON_SRCS INA226.cpp)
+            elseif(feature STREQUAL "SGP30")
+                list(APPEND COMMON_SRCS SGP30.cpp)
+            else()
+                list(APPEND COMMON_SRCS "${lower}.cpp")
+            endif()
+        endif()
+    endif()
+endforeach()
 
-target_link_libraries(common PUBLIC spdlog)
+add_library(common STATIC ${COMMON_SRCS})
+foreach(feature INA226 SGP30 SHT3X BMP280 RELAY)
+    if(PANEL_ENABLE_${feature})
+        target_compile_definitions(common PRIVATE PANEL_ENABLE_${feature}=1)
+    endif()
+endforeach()
+target_link_libraries(common PUBLIC spdlog wiringPi)

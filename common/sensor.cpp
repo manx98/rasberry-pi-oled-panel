@@ -25,52 +25,32 @@ static void init_power()
 
 int init_sensor()
 {
-    if (wiringPiSetup() < 0)
-    {
+    if (wiringPiSetup() < 0) {
         LOG_ERROR("failed to wiringPiSetup: %s", strerror(errno));
         return -1;
     }
-    pwmSetMode(PWM_MODE_MS);
-    pwmSetClock(PWM_FREQ);
-    pwmSetRange(PWM_RANGE);
     init_power();
-    if (spi_init() < 0)
-    {
-        LOG_ERROR("failed to init spi");
-        return -1;
-    }
+#ifdef PANEL_ENABLE_INA226
     int ret = INA226_configure(INA226_AVERAGES_16,
                                INA226_BUS_CONV_TIME_1100US,
                                INA226_SHUNT_CONV_TIME_1100US,
                                INA226_MODE_SHUNT_BUS_CONT);
-    if (ret < 0)
-    {
-        LOG_ERROR("Failed to configure INA226");
-        return ret;
-    }
+    if (ret < 0) return ret;
     ret = INA226_calibrate(0.0555f, 3);
-    if (ret < 0)
-    {
-        LOG_ERROR("Failed to calibrate INA226");
-        return ret;
-    }
-    if (sgp30_init() < 0)
-    {
-        return ret;
-    }
-    if (sht3x_init_sensor() < 0)
-    {
-        return -1;
-    }
-    if (bmp280_init() != 0)
-    {
-        return -1;
-    }
-    if (bmp280_set_pressure_oversampling(BMP280_OVERSAMPLING_x4))
-    {
-        return -1;
-    }
-    init_fan();
+    if (ret < 0) return ret;
+#endif
+#ifdef PANEL_ENABLE_SGP30
+    if (sgp30_init() < 0) return -1;
+#endif
+#ifdef PANEL_ENABLE_SHT3X
+    if (sht3x_init_sensor() < 0) return -1;
+#endif
+#ifdef PANEL_ENABLE_BMP280
+    if (bmp280_init() != 0) return -1;
+    if (bmp280_set_pressure_oversampling(BMP280_OVERSAMPLING_x4) != 0) return -1;
+#endif
+#ifdef PANEL_ENABLE_RELAY
     init_relay();
+#endif
     return 0;
 }

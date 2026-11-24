@@ -5,6 +5,7 @@
 #include <thread>
 #include <atomic>
 #include <utility>
+#include <exception>
 #include <spdlog/fmt/fmt.h>
 #include "text.h"
 #include "wifi.h"
@@ -21,16 +22,13 @@ WifiScanListEvent::WifiScanListEvent(const std::list<RPI::ConnectionInfo> *conne
 bool WifiScanListEvent::beforeOpen(astra::Menu *current) {
     astra::TextBox title(0, {{SCANNING_TEXT, astra::getUIConfig().mainFont}});
     std::atomic<bool> finished{false};
+    std::list<RPI::WifiInfo> infos;
     std::thread scan_thread([&]() {
-        auto infos = RPI::getWifiList(device_name_);
-        infos.sort(sortWifiInfoStrengthCb);
-        current->clear();
-        auto font = astra::getUIConfig().mainFont;
-        for (const auto &item: infos) {
-            current->addItem(new astra::List(
-                    {0,
-                     {{fmt::format("[{:02d}] {}", item.strength, item.SSID.empty() ? EMPTY_SSID : item.SSID), font}}},
-                    new WifiOperationEvent(m_connections, item, device_name_)));
+        try {
+            infos = RPI::getWifiList(device_name_);
+            infos.sort(sortWifiInfoStrengthCb);
+        } catch (const std::exception &e) {
+            spdlog::error("Wi-Fi scan failed: {}", e.what());
         }
         finished = true;
     });
@@ -40,6 +38,21 @@ bool WifiScanListEvent::beforeOpen(astra::Menu *current) {
                                   return !finished;
                               });
     scan_thread.join();
+    // Astra menus are not thread-safe. Build the menu on the UI thread, after
+    // the worker has finished, rather than mutating it during screen rendering.
+    current->clear();
+    current->selectIndex = 0;
+    current->resetCameraMemoryPos();
+    auto font = astra::getUIConfig().mainFont;
+    for (const auto &item : infos) {
+        current->addItem(new astra::List(
+            {0, {{fmt::format("[{:02d}] {}", item.strength,
+                                item.SSID.empty() ? EMPTY_SSID : item.SSID), font}}},
+            new WifiOperationEvent(m_connections, item, device_name_)));
+    }
+    if (infos.empty()) {
+        current->addItem(new astra::List({0, {{"No Wi-Fi networks", font}}}));
+    }
     return true;
 }
 
@@ -49,17 +62,14 @@ bool WifiScanListEvent::beforeRender(astra::Menu *current, const std::vector<flo
 
 bool WifiDeviceEvent::beforeOpen(astra::Menu *current) {
     std::atomic<bool> finished{false};
+    std::list<RPI::NetWorkDeviceInfo> devices;
+    std::list<RPI::ConnectionInfo> connections;
     std::thread t([&]() {
-        m_connections = RPI::get_connections();
-        auto devices = RPI::getWifiDevices();
-        current->clear();
-        auto font = astra::getUIConfig().mainFont;
-        for (const auto &item: devices) {
-            astra::TextBox title = {1, {{"- " + item.iface, font}}};
-            if (!item.SSID.empty()) {
-                title.add({"  " + item.SSID, font});
-            }
-            current->addItem(new astra::List(title, new WifiScanListEvent(&m_connections, item.iface)));
+        try {
+            connections = RPI::get_connections();
+            devices = RPI::getWifiDevices();
+        } catch (const std::exception &e) {
+            spdlog::error("Wi-Fi device lookup failed: {}", e.what());
         }
         finished = true;
     });
@@ -69,6 +79,19 @@ bool WifiDeviceEvent::beforeOpen(astra::Menu *current) {
                                   return !finished;
                               });
     t.join();
+    m_connections = std::move(connections);
+    current->clear();
+    current->selectIndex = 0;
+    current->resetCameraMemoryPos();
+    auto font = astra::getUIConfig().mainFont;
+    for (const auto &item : devices) {
+        astra::TextBox title = {1, {{"- " + item.iface, font}}};
+        if (!item.SSID.empty()) title.add({"  " + item.SSID, font});
+        current->addItem(new astra::List(title, new WifiScanListEvent(&m_connections, item.iface)));
+    }
+    if (devices.empty()) {
+        current->addItem(new astra::List({0, {{"No Wi-Fi devices", font}}}));
+    }
     return true;
 }
 
@@ -78,6 +101,7 @@ bool WifiDeviceEvent::beforeRender(astra::Menu *current, const std::vector<float
 
 bool WifiOperationEvent::beforeOpen(astra::Menu *current) {
     current->clear();
+    current->selectIndex = 0;
     current->addItem(new astra::List({0, {
             {m_info.SSID.empty() ? EMPTY_SSID : m_info.SSID, astra::getUIConfig().mainFont},
             {m_info.BSS, astra::getUIConfig().mainFont},

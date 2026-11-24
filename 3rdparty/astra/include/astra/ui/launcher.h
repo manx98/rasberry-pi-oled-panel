@@ -16,12 +16,16 @@ namespace astra {
         static Widget *currentWidget;
         static Selector *selector;
         static Camera *camera;
+        static std::function<void()> rootCancelHandler;
     public:
         static void popInfo(TextBox info, uint16_t _time);
 
         static void progress(float width, TextBox *text, const float *percentage, std::function<bool(Clocker&, key::keyIndex)> render_callback);
 
         static void init(Menu *_rootPage);
+
+        static void setRootCancelHandler(std::function<void()> handler);
+        static Menu *getCurrentMenu() { return currentMenu; }
 
         static bool open();
 

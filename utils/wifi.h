@@ -29,7 +29,6 @@ namespace RPI {
         int64_t TX;
         float signal;
     };
-    void wifi_list_rescan_cb(GObject *source_object, GAsyncResult *res, gpointer user_data);
 
     std::list<NetWorkDeviceInfo> getWifiDevices();
 

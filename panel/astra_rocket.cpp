@@ -9,6 +9,18 @@
 #include "text.h"
 #include "system.h"
 #include "network.h"
+#include "panel/power_dialog.h"
+#include "panel/status_idle_config.h"
+#include "panel/status_idle_settings.h"
+#include "panel/display/orientation_config.h"
+#include "panel/display/orientation_settings.h"
+#if defined(PANEL_ENABLE_FAN) && !defined(USE_SDL2)
+#include "panel/fan/fan_controller.h"
+#include "panel/fan/fan_settings.h"
+#endif
+#ifdef PANEL_ENABLE_SENSORS
+#include "common/sensor.h"
+#endif
 #ifdef USE_SDL2
 #include "sh1106_hal/sdl_hal.h"
 #else
@@ -21,6 +33,18 @@ unsigned char testSlider = 60;
 
 
 void astraCoreInit(void) {
+    status_idle::Config::instance().load();
+    // Orientation must be loaded before SH1106 initialization and input.
+    display::OrientationConfig::instance().load();
+#if defined(PANEL_ENABLE_FAN) && !defined(USE_SDL2)
+    // Starts autonomous GPIO12 control independently of OLED refresh or UI.
+    fan::Controller::instance().start();
+#endif
+#ifdef PANEL_ENABLE_SENSORS
+    if (init_sensor() != 0) {
+        fprintf(stderr, "Optional sensor initialization failed; continuing with OLED UI.\n");
+    }
+#endif
 #ifdef USE_SDL2
     HAL::inject(new SDLHal());
 #else
@@ -40,17 +64,17 @@ void astraCoreInit(void) {
                                       new NetWorkDeviceListEvent()));
     auto *secondPage = new astra::List({textMarin, {{SETTING_TEXT, font}}}, setting_icon_30x30);
     rootPage->addItem(secondPage);
+    secondPage->addItem(new astra::List(
+        {textMarin, {{status_idle::menuLabel(), font}}}, new status_idle::SettingsEvent()));
+    secondPage->addItem(new astra::List(
+        {textMarin, {{"屏幕方向", font}}}, new display::OrientationSettingsEvent()));
 
-    secondPage->addItem(new astra::List({textMarin, {{"-测试123456789123456789", font}}}), new astra::CheckBox(test, [](bool &checked) {
-        printf("checked --------> %d\n", checked);
-    }));
-    secondPage->addItem(new astra::List({textMarin, {
-            {"-111111", font},
-            {" 222222", font},
-    }}));
-    secondPage->addItem(new astra::List({textMarin, {{"-进程已结束，退出代码为 -1", font}}}));
+#if defined(PANEL_ENABLE_FAN) && !defined(USE_SDL2)
+    secondPage->addItem(new astra::List({textMarin, {{"风扇温控", font}}}, new fan::SettingsEvent()));
+#endif
 
     astra::Launcher::init(rootPage);
+    astra::Launcher::setRootCancelHandler(showPowerManagementDialog);
 }
 
 [[noreturn]] void astraCoreStart(void) {

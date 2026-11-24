@@ -4,7 +4,6 @@
 #include <list>
 #include <string>
 #include <map>
-#include "wifi.h"
 
 namespace RPI {
     bool setIpLinkUp(const char* interface_name, bool up);

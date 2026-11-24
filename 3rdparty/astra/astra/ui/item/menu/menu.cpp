@@ -107,13 +107,14 @@ namespace astra {
     }
 
     void List::childPosInit(const std::vector<float> &_camera) {
+        const float rowGap = listItemGap >= 0 ? listItemGap : astraConfig.listTextMargin;
         float top = 0;
         for (auto _iter: childMenu) {
             _iter->position.x = astraConfig.listTextMargin;
             _iter->position.xTrg = astraConfig.listTextMargin;
             _iter->position.yTrg = top;
 
-            top += _iter->title.getHeight() + astraConfig.listTextMargin;
+            top += _iter->title.getHeight() + rowGap;
 
             //受展开开关影响的坐标初始化
             //根页面有开场动画 所以不需要从头展开
@@ -208,16 +209,20 @@ namespace astra {
 
         //draw bar.
         positionForeground.hBarTrg = systemConfig.screenHeight * (select_height / total_height);
-        //画指示线
-        HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight, 0, astraConfig.listBarWeight);
-        HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight,
-                       systemConfig.screenHeight - 1,
-                       astraConfig.listBarWeight);
-        HAL::drawVLine(systemConfig.screenWeight - ceil((float) astraConfig.listBarWeight / 2.0f),
-                       0,
-                       systemConfig.screenHeight);
-        //draw bar.
-        HAL::drawBox(positionForeground.xBar, 0, astraConfig.listBarWeight, positionForeground.hBar);
+        // Keep the live status text, but remove the right-hand scrollbar
+        // after 30 seconds without any key events on the status page.
+        if (!navigationHidden) {
+            //画指示线
+            HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight, 0, astraConfig.listBarWeight);
+            HAL::drawHLine(systemConfig.screenWeight - astraConfig.listBarWeight,
+                           systemConfig.screenHeight - 1,
+                           astraConfig.listBarWeight);
+            HAL::drawVLine(systemConfig.screenWeight - ceil((float) astraConfig.listBarWeight / 2.0f),
+                           0,
+                           systemConfig.screenHeight);
+            //draw bar.
+            HAL::drawBox(positionForeground.xBar, 0, astraConfig.listBarWeight, positionForeground.hBar);
+        }
 
         //light mode.
         if (astraConfig.lightMode) {
@@ -276,7 +281,10 @@ namespace astra {
     }
 
     float List::getHeight() {
-        return title.getHeight() + astraConfig.listTextMargin;
+        // Camera bounds must match the menu's actual item spacing.
+        const float gap = parent && parent->listItemGap >= 0
+                              ? parent->listItemGap : astraConfig.listTextMargin;
+        return title.getHeight() + gap;
     }
 
     List::List(const TextBox &_title, Menu::Event *event) : Menu(_title), m_event(event) {

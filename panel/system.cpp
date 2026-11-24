@@ -3,6 +3,7 @@
 //
 
 #include "system.h"
+#include "panel/status_idle_config.h"
 #include "text.h"
 #include "spdlog/spdlog.h"
 #include <spdlog/fmt/fmt.h>
@@ -54,6 +55,7 @@ astra::TextBox SystemStatusListEvent::getIpInfo() {
         }
     }
     if (name.empty()) {
+        net_card_name.clear();
         last_update_time = RPI::getUnixMill();
         stats = {};
     } else if (net_card_name != name) {
@@ -61,7 +63,9 @@ astra::TextBox SystemStatusListEvent::getIpInfo() {
         last_update_time = RPI::getUnixMill();
         stats = RPI::getNetworkStats(net_card_name);
     }
-    return {astra::getUIConfig().listTextMargin, {{name, STATUS_FONT}, {ip, STATUS_FONT}}};
+    // Only the IP is displayed; retain the interface name internally for
+    // network rate counters. Keep a single line in the compact status list.
+    return {0.0f, {{ip.empty() ? "无IP" : ip, STATUS_FONT}}};
 }
 
 astra::Text SystemStatusListEvent::getDiskInfo() {
@@ -101,46 +105,30 @@ astra::Text SystemStatusListEvent::getSpeedInfo() {
 }
 
 void SystemStatusListEvent::refresh(astra::Menu *current) {
-    auto textMarin = astra::getUIConfig().listTextMargin;
+    // Only the system-status page is compact; Wi-Fi and other menus use
+    // Astra's standard list spacing. The IP/CPU/Mem/Disk/Speed status
+    // information now occupies five lines within the 64px screen.
+    // Keep a 2px inter-row pitch so the selected background has 1px of
+    // breathing room under the text, while remaining much tighter than 4px.
+    current->listItemGap = 2.0f;
+    current->listSelectorTopInset = 1.0f;
+    current->hideNavigationAfterIdle = true;
+    current->navigationIdleTimeoutMs = static_cast<std::uint64_t>(
+        status_idle::Config::instance().seconds()) * 1000;
+    current->navigationHidden = false;
+    current->clear();
+    current->selectIndex = 0;
+    auto textMargin = astra::getUIConfig().listTextMargin;
     current->addItem(new astra::List(getIpInfo()));
-    current->addItem(new astra::List({textMarin, {getCpuInfo()}}));
-    current->addItem(new astra::List({textMarin, {getMemInfo()}}));
-    current->addItem(new astra::List({textMarin, {getDiskInfo()}}));
-    current->addItem(new astra::List({textMarin, {getSpeedInfo()}}));
+    current->addItem(new astra::List({textMargin, {getCpuInfo()}}));
+    current->addItem(new astra::List({textMargin, {getMemInfo()}}));
+    current->addItem(new astra::List({textMargin, {getDiskInfo()}}));
+    current->addItem(new astra::List({textMargin, {getSpeedInfo()}}));
 }
 
 bool SystemStatusListEvent::beforeOpen(astra::Menu *current) {
     last_render_time = RPI::getUnixMill();
-    current->
-
-            clear();
-
-    auto textMarin = astra::getUIConfig().listTextMargin;
-    current->addItem(new
-
-                             astra::List(getIpInfo())
-
-    );
-    current->addItem(new astra::List({
-                                             textMarin, {
-                    getCpuInfo()
-
-            }}));
-    current->addItem(new astra::List({
-                                             textMarin, {
-                    getMemInfo()
-
-            }}));
-    current->addItem(new astra::List({
-                                             textMarin, {
-                    getDiskInfo()
-
-            }}));
-    current->addItem(new astra::List({
-                                             textMarin, {
-                    getSpeedInfo()
-
-            }}));
+    refresh(current);
     return true;
 }
 

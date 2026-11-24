@@ -10,6 +10,7 @@
 #include "string"
 #include <utility>
 #include <vector>
+#include <cstdint>
 #include "astra/ui/item/item.h"
 #include "astra/ui/item/widget/widget.h"
 #include "astra/utils/clocker.h"
@@ -83,6 +84,18 @@ namespace astra {
         Menu *parent{};
         std::vector<Menu *> childMenu; //allow widget and menu.
         std::vector<Widget *> childWidget;
+
+        // Optional per-page list row spacing. Negative means use Astra's
+        // global listTextMargin. Other menus retain their original spacing.
+        float listItemGap = -1.0f;
+        // Optional inset for the selected row's background. Keep the box
+        // inside the row pitch when using a compact list layout.
+        float listSelectorTopInset = 0.0f;
+        // Only status-like pages opt in: after 30 seconds without a key,
+        // hide the selector highlight and list scrollbar, but keep text live.
+        bool hideNavigationAfterIdle = false;
+        bool navigationHidden = false;
+        std::uint64_t navigationIdleTimeoutMs = 30000;
         unsigned char selectIndex{};
 
         [[nodiscard]] unsigned char getItemNum() const;

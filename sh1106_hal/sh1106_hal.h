@@ -1,20 +1,31 @@
-//
-// Created by wenyiyu on 2024/9/1.
-//
-
-#ifndef RASPBERRY_PI_OLED_PANEL_SH1106_HAL_H
-#define RASPBERRY_PI_OLED_PANEL_SH1106_HAL_H
+#pragma once
 
 #include <astra/hal/hal_dreamCore/hal_dreamCore.h>
+#include "sh1106_hal/two_button_input.h"
+#include <array>
+#include <atomic>
+#include <mutex>
+#include <thread>
 
-class Sh1106Hal : public HALDreamCore {
+class Sh1106Hal final : public HALDreamCore {
 public:
-    Sh1106Hal() = default;
-    bool _getKey(key::KEY_INDEX _keyIndex) override;
+    ~Sh1106Hal() override;
+    void init() override;
+    bool _keyScan() override;
+    bool _getKey(key::KEY_INDEX index) override;
+    void _canvasUpdate() override;
     void _screenOn() override;
     void _screenOff() override;
-    void init() override;
+
+private:
+    void scanButtons();
+
+    int lineFd_ = -1;
+    std::atomic<bool> scanning_{false};
+    std::thread buttonThread_;
+    std::mutex buttonsMutex_;
+    TwoButtonInput buttons_;
+    std::array<unsigned char, 1024> sentBuffer_{};
+    bool hasSentFrame_ = false;
+    int appliedRotationDegrees_ = 0;
 };
-
-
-#endif //RASPBERRY_PI_OLED_PANEL_SH1106_HAL_H
