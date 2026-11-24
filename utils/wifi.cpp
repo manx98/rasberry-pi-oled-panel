@@ -69,6 +69,18 @@ namespace RPI {
             info.BSS = cStr(nm_access_point_get_bssid(ap));
             info.strength = nm_access_point_get_strength(ap);
             info.frequency = nm_access_point_get_frequency(ap);
+            const auto flags = nm_access_point_get_flags(ap);
+            const auto wpa = nm_access_point_get_wpa_flags(ap);
+            const auto rsn = nm_access_point_get_rsn_flags(ap);
+            const bool protectedNetwork = (flags & NM_802_11_AP_FLAGS_PRIVACY)
+                                          || wpa != NM_802_11_AP_SEC_NONE
+                                          || rsn != NM_802_11_AP_SEC_NONE;
+            const auto personalFlags = NM_802_11_AP_SEC_KEY_MGMT_PSK | NM_802_11_AP_SEC_KEY_MGMT_SAE;
+            if (!protectedNetwork) info.security = WifiSecurity::Open;
+            else if ((wpa | rsn) & personalFlags) info.security = WifiSecurity::Personal;
+            else if (wpa == NM_802_11_AP_SEC_NONE && rsn == NM_802_11_AP_SEC_NONE)
+                info.security = WifiSecurity::LegacyWep;
+            else info.security = WifiSecurity::Enterprise;
             result.emplace_back(std::move(info));
         }
         return result;
@@ -1215,6 +1227,7 @@ namespace RPI {
             auto conn = static_cast<NMConnection *>(g_ptr_array_index(conn_list, i));
             ConnectionInfo info;
             info.id = cStr(nm_connection_get_id(conn));
+            info.uuid = cStr(nm_connection_get_uuid(conn));
             auto setting = nm_connection_get_setting_wireless(conn);
             if (!setting) {
                 continue;
@@ -1270,6 +1283,7 @@ namespace RPI {
         if (st) {
             info = new ConnectionInfo;
             info->id = cStr(nm_active_connection_get_id(act_conn));
+            info->uuid = cStr(nm_active_connection_get_uuid(act_conn));
             info->ssid = gBytesToStr(nm_setting_wireless_get_ssid(st));
             info->bssid = cStr(nm_setting_wireless_get_bssid(st));
         }

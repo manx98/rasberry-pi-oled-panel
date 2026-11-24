@@ -22,7 +22,7 @@ namespace astra {
         [[nodiscard]] float getHeight() const;
         [[nodiscard]] float getWidth() const;
         void setMaxWidth(float _max_w);
-        void draw(float _x, float _y, Clocker &clocker);
+        void draw(float _x, float _y, Clocker &clocker, bool allowScroll = true);
     private:
         void resetAnimate();
         std::string m_text_;
@@ -49,7 +49,7 @@ namespace astra {
         void setMaxWidth(float _max_w);
         void add(Text _text);
         void remove(int _index);
-        void draw(float _x, float _y, Clocker &clocker);
+        void draw(float _x, float _y, Clocker &clocker, bool allowScroll = true);
         void clear();
         [[nodiscard]] float getWidth() const;
         [[nodiscard]] float getHeight() const;

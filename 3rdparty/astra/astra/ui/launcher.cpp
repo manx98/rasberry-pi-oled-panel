@@ -74,6 +74,8 @@ namespace astra {
      * @warning 仅可调用一次
      */
     bool Launcher::open() {
+        if (!currentMenu || currentMenu->childMenu.empty()
+            || !currentMenu->childMenu[currentMenu->selectIndex]->selectable) return false;
         auto child = currentMenu->getNextMenu();
         //如果当前页面指向的当前item没有后继 那就返回false
         if (child == nullptr) {

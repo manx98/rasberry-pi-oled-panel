@@ -3,6 +3,7 @@
 //
 
 #include "astra/ui/item/selector/selector.h"
+#include "astra/ui/selection_navigation.h"
 
 namespace astra {
 
@@ -34,6 +35,9 @@ namespace astra {
     void Selector::go(unsigned char _index) {
         Item::updateConfig();
 
+        if (!menu || _index >= menu->childMenu.size()
+            || !menu->childMenu[_index]->selectable) return;
+
 //  if (_index > menu->childMenu.size() - 1) {
 //    if (astraConfig.menuLoop) _index = 0;
 //    else return;
@@ -50,19 +54,19 @@ namespace astra {
     }
 
     void Selector::goNext() {
-        if (this->menu->selectIndex == this->menu->childMenu.size() - 1) {
-            if (astraConfig.menuLoop) go(0);
-            else return;
-        } else go(menu->selectIndex + 1);
-        setPosition();
+        if (!menu || menu->childMenu.empty()) return;
+        const auto next = wifi_list_navigation::nextSelectable(menu->childMenu,
+                                                               menu->selectIndex, 1);
+        if (!astraConfig.menuLoop && next <= menu->selectIndex) return;
+        go(static_cast<unsigned char>(next));
     }
 
     void Selector::goPreview() {
-        if (this->menu->selectIndex == 0) {
-            if (astraConfig.menuLoop) go(this->menu->childMenu.size() - 1);
-            else return;
-        } else go(menu->selectIndex - 1);
-        setPosition();
+        if (!menu || menu->childMenu.empty()) return;
+        const auto previous = wifi_list_navigation::nextSelectable(menu->childMenu,
+                                                                   menu->selectIndex, -1);
+        if (!astraConfig.menuLoop && previous >= menu->selectIndex) return;
+        go(static_cast<unsigned char>(previous));
     }
 
     bool Selector::inject(Menu *_menu) {
@@ -70,7 +74,10 @@ namespace astra {
 
         this->menu = _menu;
 
-        go(this->menu->selectIndex);  //注入之后要初始化选择框的位置
+        if (menu->childMenu.empty()) return true;
+        menu->selectIndex = static_cast<unsigned char>(
+            wifi_list_navigation::firstSelectable(menu->childMenu, menu->selectIndex));
+        go(menu->selectIndex);  // Begin on the first action, not a section header.
 
         return true;
     }
@@ -85,6 +92,9 @@ namespace astra {
 
     void Selector::render(std::vector<float> _camera, Clocker &clocker) {
         Item::updateConfig();
+
+        if (!menu || menu->childMenu.empty()
+            || !menu->childMenu[menu->selectIndex]->selectable) return;
 
         //实际上 这里已经实现过渡动画了
         Animation::move(x, xTrg, astraConfig.selectorXAnimationSpeed, clocker);

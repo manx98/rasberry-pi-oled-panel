@@ -4,6 +4,7 @@
 
 #include "astra/ui/item/camera/camera.h"
 #include "astra/hal/hal.h"
+#include "astra/ui/list_viewport.h"
 
 namespace astra {
     Camera::Camera() {
@@ -100,34 +101,32 @@ namespace astra {
     }
 
     void Camera::goToListItemRolling(List *_menu) {
-        static bool init = false;
-
-        //第一次进入的时候初始化 退出页面记住坐标 再次进入就OK了
+        // Each list owns its scroll state. A global static flag here caused
+        // another menu's viewport to leak into a newly created list.
         if (!_menu->initFlag) {
             go(0, 0);
             _menu->initFlag = true;
+            _menu->refreshBoundary(0, systemConfig.screenHeight);
         }
         auto item = _menu->getSelected();
-        if (item->position.yTrg < _menu->getBoundary()[0]) {
-            //注意这里是go不是move
-            auto start = item->position.yTrg;
-            auto end = systemConfig.screenHeight + start;
-            if(start < 0) {
-                start = 0;
-            }
-            move(0, start - _menu->getBoundary()[0]);
-            _menu->refreshBoundary(start, end);
-            return;
-        } else if (item->position.yTrg + item->getHeight() > _menu->getBoundary()[1]) {
-            auto end = item->position.yTrg + item->getHeight();
-            move(0, end - _menu->getBoundary()[1]);
-            auto start = end - systemConfig.screenHeight;
-            if(start < 0) {
-                start = 0;
-            }
-            _menu->refreshBoundary(start, end);
-            return;
-        } else return;
+        if (!item) return;
+
+        // After crossing a section separator on the way back up, the old
+        // calculation stopped at the first selectable SSID and permanently
+        // clipped the "已保存" heading above it. Keep that heading in view.
+        float sectionTop = -1.0f;
+        const auto index = _menu->selectIndex;
+        if (index > 0 && index < _menu->childMenu.size()
+            && _menu->childMenu[index - 1]->sectionHeader) {
+            sectionTop = _menu->childMenu[index - 1]->position.yTrg;
+        }
+        // The actual camera *target* is authoritative: remembered boundaries
+        // can go stale after closing/reopening or rebuilding a Wi-Fi list.
+        const auto targetTop = listViewportTop(-yTrg, item->position.yTrg,
+                                               item->position.yTrg + item->getHeight(),
+                                               systemConfig.screenHeight, sectionTop);
+        if (targetTop != -yTrg) go(0, targetTop);
+        _menu->refreshBoundary(targetTop, targetTop + systemConfig.screenHeight);
     }
 
     void Camera::goToTileItem(unsigned char _index) {

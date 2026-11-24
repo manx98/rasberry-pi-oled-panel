@@ -60,7 +60,10 @@ set(PANEL_SRCS panel/main.cpp
         utils/wifi.cpp utils/wifi.h
         utils/nm-shared-utils.c utils/nm-shared-utils.h
         utils/nm-utils.c utils/nm-utils.h
-        panel/wifi.cpp panel/wifi.h)
+        panel/wifi.cpp panel/wifi.h
+        panel/wifi_groups_policy.h
+        panel/wifi_password_dialog.cpp panel/wifi_password_dialog.h panel/wifi_password_state.h
+        utils/wifi_nmcli.cpp utils/wifi_nmcli.h)
 if(PANEL_ENABLE_FAN AND NOT USE_SDL2)
     list(APPEND PANEL_SRCS
         panel/fan/fan_controller.cpp

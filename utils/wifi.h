@@ -16,11 +16,13 @@ namespace RPI {
         std::string uid;
         std::string SSID;
     };
+    enum class WifiSecurity { Open, Personal, LegacyWep, Enterprise };
     struct WifiInfo {
         std::string BSS;
         std::string SSID;
         guint8 strength;
         guint32 frequency;
+        WifiSecurity security = WifiSecurity::Open;
     };
     struct WifiConnectInfo {
         std::string BSS;
@@ -93,6 +95,7 @@ namespace RPI {
 
     struct ConnectionInfo {
         std::string id;
+        std::string uuid;
         std::string bssid;
         std::string ssid;
     };

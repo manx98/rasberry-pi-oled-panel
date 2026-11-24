@@ -131,31 +131,30 @@ namespace astra {
         }
     }
 
-    void Text::draw(float _x, float _y, Clocker &clocker) {
+    void Text::draw(float _x, float _y, Clocker &clocker, bool allowScroll) {
         HAL::setFont(m_font_);
         if (animate_offset_max_ > 0)
         {
-            if (animate_boundary_wait_time_ > 0)
-            {
-                animate_boundary_wait_time_-=clocker.lastDuration();
-            }
-            if (animate_boundary_wait_time_ <= 0)
-            {
-                Animation::moveUniform(animate_offset_, animate_offset_max_, getUIConfig().text_flow_speed, clocker);
-            }
             HAL::setClipWindow(_x, _y - m_h_ + 2, _x + m_max_w_, _y + 2);
-            if (animate_offset_ >= animate_offset_max_)
-            {
-                animate_offset_ = 0;
-                animate_boundary_wait_time_ = getUIConfig().text_flow_boundary_wait_time;
-                animate_forward_ = !animate_forward_;
-            }
-            if (animate_forward_)
-            {
-                _x -= animate_offset_max_ - animate_offset_;
-            } else
-            {
-                _x -= animate_offset_;
+            if (!allowScroll) {
+                // Keep every unselected Wi-Fi row at the beginning of its
+                // SSID. Restart from the first character when selected.
+                resetAnimate();
+            } else {
+                if (animate_boundary_wait_time_ > 0) {
+                    animate_boundary_wait_time_ -= clocker.lastDuration();
+                }
+                if (animate_boundary_wait_time_ <= 0) {
+                    Animation::moveUniform(animate_offset_, animate_offset_max_,
+                                           getUIConfig().text_flow_speed, clocker);
+                }
+                if (animate_offset_ >= animate_offset_max_) {
+                    animate_offset_ = 0;
+                    animate_boundary_wait_time_ = getUIConfig().text_flow_boundary_wait_time;
+                    animate_forward_ = !animate_forward_;
+                }
+                _x -= animate_forward_ ? animate_offset_max_ - animate_offset_
+                                       : animate_offset_;
             }
         }
         HAL::drawChinese(_x, _y, m_text_);
@@ -168,7 +167,8 @@ namespace astra {
     void Text::resetAnimate()
     {
         animate_offset_ = 0;
-        animate_forward_ = true;
+        animate_forward_ = false;
+        animate_boundary_wait_time_ = getUIConfig().text_flow_boundary_wait_time;
     }
 
     TextBox::TextBox(float margin, const std::initializer_list<Text> &_texts): m_margin(margin), m_texts(_texts), m_h(0), m_w(0) {
@@ -179,12 +179,12 @@ namespace astra {
         m_h -= margin;
     }
 
-    void TextBox::draw(float _x, float _y, Clocker &clocker) {
+    void TextBox::draw(float _x, float _y, Clocker &clocker, bool allowScroll) {
         float y = _y;
         auto it = m_texts.end();
         while (it != m_texts.begin()) {
             --it;
-            it->draw(_x, y, clocker);
+            it->draw(_x, y, clocker, allowScroll);
             y -= it->getHeight() + m_margin;
         }
     }

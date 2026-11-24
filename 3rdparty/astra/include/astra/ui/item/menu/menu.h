@@ -44,7 +44,10 @@ namespace astra {
 
         [[nodiscard]] std::vector<float> getCameraMemoryPos() const { return cameraPosMemory; }
 
-        void resetCameraMemoryPos() { cameraPosMemory = {0, 0}; }
+        void resetCameraMemoryPos() {
+            cameraPosMemory = {0, 0};
+            cameraPosMemoryFlag = false;
+        }
 
         //编写一个变量 指示该页面到底有没有记忆
         bool cameraPosMemoryFlag = false;
@@ -96,6 +99,12 @@ namespace astra {
         bool hideNavigationAfterIdle = false;
         bool navigationHidden = false;
         std::uint64_t navigationIdleTimeoutMs = 30000;
+        // Opt-in for lists with long labels (e.g. scanned Wi-Fi SSIDs).
+        // Non-selected rows stay clipped at the beginning of their text.
+        bool scrollSelectedTextOnly = false;
+        // Section separators are drawn but skipped by button navigation.
+        bool selectable = true;
+        bool sectionHeader = false;
         unsigned char selectIndex{};
 
         [[nodiscard]] unsigned char getItemNum() const;

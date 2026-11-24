@@ -201,7 +201,16 @@ namespace astra {
             }
             //绘制文字
             _iter->title.draw(_iter->position.x + _camera[0],
-                              _iter->position.y + _iter->title.getHeight() + _camera[1], clocker);
+                              _iter->position.y + _iter->title.getHeight() + _camera[1],
+                              clocker, !scrollSelectedTextOnly || index == selectIndex);
+            if (_iter->sectionHeader) {
+                // Draw a subtle line in the row gap: a visual section divider
+                // that does not interfere with the selected-row background.
+                HAL::setDrawType(1);
+                HAL::drawHLine(4 + _camera[0],
+                               _iter->position.y + _iter->title.getHeight() + _camera[1] + 2,
+                               systemConfig.screenWeight - astraConfig.listBarWeight - 8);
+            }
             //这里的yTrg在addItem的时候就已经确定了
             Animation::move(_iter->position.y, _iter->position.yTrg, astraConfig.listAnimationSpeed, clocker);
             index++;
