@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+case "${1:-}" in
+    remove|deconfigure)
+        if command -v systemctl >/dev/null 2>&1; then
+            if [ -d /run/systemd/system ]; then
+                systemctl stop raspberry-pi-oled-panel.service || :
+            fi
+            systemctl disable raspberry-pi-oled-panel.service >/dev/null 2>&1 || :
+        fi
+        ;;
+    upgrade)
+        # Keep the old service running until postinst restarts the upgraded
+        # program; avoids unnecessary fan downtime during dpkg unpack.
+        ;;
+esac
+exit 0

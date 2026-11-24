@@ -10,6 +10,7 @@
 #include "panel/network_list_layout.h"
 #include <atomic>
 #include "utils/utils.h"
+#include "utils/shutdown.h"
 #include "text.h"
 #include "network.h"
 
@@ -45,6 +46,7 @@ bool NetWorkDeviceListEvent::beforeOpen(astra::Menu *current) {
         finished = true;
     });
     auto screenWeight = HAL::getSystemConfig().screenWeight;
+    panel_shutdown::JoinThread join(scan_thread);
     astra::Launcher::progress(screenWeight - 20, &title, nullptr,
                               [&](astra::Clocker &clocker, key::keyIndex key) -> bool {
                                   return !finished;

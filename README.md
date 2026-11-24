@@ -33,6 +33,46 @@ scp build-zero2w/raspberry_pi_oled_panel wenyiyu@192.168.137.71:~/
 
 交叉编译工具链位于 `cmake/toolchains/zero2w-arm64.cmake`；所有 C/C++ 标准库和系统头文件从挂载的目标 sysroot 读取。注意目标系统必须安装对应 *-dev 开发包才能启用需要额外库的功能。
 
+## 编译 Debian ARM64 安装包并自动注册服务
+
+目标系统为 **Debian 13 / Raspberry Pi OS arm64**，需要 NetworkManager、systemd、I²C 和 GPIO 设备。开发机需安装交叉编译依赖及 `dpkg-deb`（通常由 `dpkg` 提供）。在项目根目录执行：
+
+```bash
+# 一键交叉编译并制作 deb（默认启用 GPIO12 风扇）
+PI_SSH=wenyiyu@192.168.1.6 BUILD_JOBS=6 ./scripts/build-deb.sh
+
+# 仅打包已有 build-zero2w/raspberry_pi_oled_panel，不重新编译
+./scripts/build-deb.sh --skip-build
+
+# 可自定义 Debian 版本号和输出目录
+DEB_VERSION=1.0.0-1 DEB_OUTPUT_DIR=/tmp ./scripts/build-deb.sh
+```
+
+生成的文件位于 `dist/raspberry-pi-oled-panel_<版本>_arm64.deb`，该目录已加入 `.gitignore`。包内安装 `/usr/bin/raspberry-pi-oled-panel` 和 `/usr/lib/systemd/system/raspberry-pi-oled-panel.service`，并在安装时自动注册、启用与启动系统服务。**服务用户和组均为 root**，以允许操作 OLED、GPIO12 风扇、按键及电源管理。`Restart=always` 在进程自行退出（包括正常退出、异常退出和外部信号终止）后等待 5 秒自动重启；`StartLimitIntervalSec=0` 禁用启动频率限制，使硬件或依赖长时间故障后仍可自动恢复。显式 `systemctl stop`、卸载或系统关机不会触发自动重启。每次重启前仍执行清屏流程。
+
+将 `.deb` 复制到 Zero 2 W 并安装：
+
+```bash
+scp dist/raspberry-pi-oled-panel_*_arm64.deb wenyiyu@192.168.1.6:/tmp/
+ssh wenyiyu@192.168.1.6
+sudo apt install /tmp/raspberry-pi-oled-panel_*_arm64.deb
+
+# 安装完成后应已自动启动；之后可手动管理
+sudo systemctl status raspberry-pi-oled-panel.service
+sudo systemctl restart raspberry-pi-oled-panel.service
+sudo systemctl stop raspberry-pi-oled-panel.service
+sudo systemctl enable --now raspberry-pi-oled-panel.service
+journalctl -u raspberry-pi-oled-panel.service -f
+```
+
+- **首次安装**：安装钩子检测并温和停止 `/home/<用户>/raspberry_pi_oled_panel` 旧版手工启动进程，避免 GPIO 和 I²C 设备重复占用。若旧进程无法退出，不会强制杀死，也不会启动竞争设备的服务；可先手工处理旧进程后执行 `sudo systemctl start raspberry-pi-oled-panel.service`。
+- **升级**：`sudo apt install ./新版.deb` 会自动重启已有 systemd 服务。已保存的风扇温控、屏幕方向与状态隐藏设置继续保存在 `/var/lib/raspberry-pi-oled-panel`，升级不会清空。
+- **停止服务**：程序捕获 SIGTERM/SIGINT（包括前台 Ctrl+C），退出 UI 主循环和嵌套对话框，回收网络工作线程及按键扫描线程，主动关闭 SH1106 显示输出并清零全部显示 RAM（包括隐藏列），释放 I²C/GPIO 及风扇控制资源。systemd 保留 `ExecStopPost` 作为独立清屏兜底，即使主程序被强制终止也会尝试清屏。不修改面板配置；再次启动时正常初始化并点亮屏幕。清屏 I²C 失败时会在 journal 中记录错误。
+- **卸载**：`sudo apt remove raspberry-pi-oled-panel` 会停止并禁用服务，保留配置；`sudo apt purge raspberry-pi-oled-panel` 会删除保存的配置。
+- **日志**：systemd 管理模式下通过 `journalctl -u raspberry-pi-oled-panel.service` 查看，不再使用旧手工启动脚本的 `/var/log/raspberry-pi-oled-panel.log`。在不运行 systemd 的离线 rootfs 中安装时，只注册为开机服务，不尝试立即启动。
+
+打包前可用 `bash tests/deb_packaging_test.sh` 检查服务文件、脚本、依赖、文件所有权和软件包结构。安装完成后不需要额外创建 `.service` 文件或运行旧的 root 启动脚本。
+
 ## 可选功能（GPIO12 风扇默认开启，其他传感器默认关闭）
 
 | 构建开关 | 作用 |
@@ -62,7 +102,7 @@ g++ -std=c++17 -I. tests/two_button_input_test.cpp -o /tmp/two_button_test
 /tmp/two_button_test
 ```
 
-不创建任何开机自启服务；程序运行与部署均为手动操作。
+仅使用裸可执行文件时仍需手工启动；**安装 `.deb` 后会自动启用 systemd 开机服务**。
 
 ### Wi-Fi 扫描崩溃诊断
 
@@ -84,7 +124,7 @@ g++ -std=c++17 -I. tests/two_button_input_test.cpp -o /tmp/two_button_test
 
 主界面按住 GPIO23（取消/返回）约 650ms，弹出电源管理窗口；在二级页面长按仍然返回上级。弹窗仅提供“关机 / 重启”，默认选中“关机”。短按 GPIO24/23 在两项间切换，长按 GPIO24 确认，长按 GPIO23 直接关闭弹窗（无需单独的“取消”选项）。选中关机或重启后还有第二次“执行 / 返回”确认，默认停留“返回”以防误触。
 
-面板按照需求**整体以 root 身份运行**，电源动作直接调用 `/usr/bin/systemctl --no-block poweroff|reboot`，无需经 sudoers 运行。请在目标机通过以下脚本手动管理面板（**不会开机自启**）：
+面板按照需求**整体以 root 身份运行**，电源动作直接调用 `/usr/bin/systemctl --no-block poweroff|reboot`，无需经 sudoers 运行。**推荐使用上述 `.deb` 安装并由 systemd 自动运行。** 如果仅部署裸可执行文件、没有安装 `.deb`，仍可通过以下旧脚本手动管理（该方式不会开机自启）：
 
 ```bash
 # 首次启动会提示输入 wenyiyu 的 sudo 密码（如未配置免密）
@@ -122,7 +162,7 @@ GPIO12（BCM12，**物理针脚 32**）作为风扇驱动控制输出，使用 L
 
 自动模式下，CPU 温度 ≥ 启动阈值时开启风扇，≤ 停止阈值时关闭；两者之间保持之前状态，避免反复启停。如果温度传感器读取失败，自动模式会**强制开启风扇（故障安全）**。常开或关闭模式遵从手动选择。
 
-配置自动保存到目标机 `/var/lib/raspberry-pi-oled-panel/fan.conf`，重启面板会加载上次保存的参数。温度控制在独立线程中执行，不受 OLED I²C 绘图或 Wi-Fi 扫描影响。面板仍以 root 手动启动，不创建新的开机自启服务；**面板未运行期间不提供 GPIO12 温控**。
+配置自动保存到目标机 `/var/lib/raspberry-pi-oled-panel/fan.conf`，重启面板会加载上次保存的参数。温度控制在独立线程中执行，不受 OLED I²C 绘图或 Wi-Fi 扫描影响。安装 `.deb` 后，由 systemd 开机自动启动 root 面板服务；仅部署裸可执行文件时仍需手动启动。**面板未运行期间不提供 GPIO12 温控**。
 
 单元测试：
 

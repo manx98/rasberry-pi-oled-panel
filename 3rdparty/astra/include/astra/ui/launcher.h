@@ -17,6 +17,7 @@ namespace astra {
         static Selector *selector;
         static Camera *camera;
         static std::function<void()> rootCancelHandler;
+        static void (*shutdownCheckpoint)();
     public:
         static void popInfo(TextBox info, uint16_t _time);
 
@@ -25,6 +26,7 @@ namespace astra {
         static void init(Menu *_rootPage);
 
         static void setRootCancelHandler(std::function<void()> handler);
+        static void setShutdownCheckpoint(void (*checkpoint)());
         static Menu *getCurrentMenu() { return currentMenu; }
 
         static bool open();

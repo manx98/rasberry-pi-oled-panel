@@ -158,4 +158,5 @@ else ()
 endif ()
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/3rdparty/wiringPi/include)
 target_link_libraries(${PROJECT_NAME} ${LIBS})
-add_subdirectory(examples)
+# This repository uses u8g2 only as a library for the SH1106 panel. Vendor
+# hardware demonstration programs are intentionally omitted from the tree.

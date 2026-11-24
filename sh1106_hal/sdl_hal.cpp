@@ -5,6 +5,7 @@
 #include "sdl_hal.h"
 #include "SDL.h"
 #include "common/log.h"
+#include "utils/shutdown.h"
 
 static bool KEY_DOWN[key::KEY_NUM];
 
@@ -38,7 +39,8 @@ bool SDLHal::_getKey(key::KEY_INDEX _keyIndex)
         switch (event.type)
         {
         case SDL_QUIT:
-            exit(0);
+            panel_shutdown::request();
+            break;
         case SDL_KEYDOWN:
             proceedKey(true, event.key.keysym.sym);
             break;

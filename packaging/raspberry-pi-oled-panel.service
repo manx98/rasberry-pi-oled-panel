@@ -1,0 +1,26 @@
+[Unit]
+Description=Raspberry Pi SH1106 OLED Panel
+Documentation=https://github.com/manx98/rasberry-pi-oled-panel
+After=network.target
+Wants=network.target
+# Keep retrying even after a prolonged hardware or dependency failure.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/var/lib/raspberry-pi-oled-panel
+StateDirectory=raspberry-pi-oled-panel
+StateDirectoryMode=0755
+ExecStart=/usr/bin/raspberry-pi-oled-panel
+ExecStopPost=/usr/bin/raspberry-pi-oled-panel --clear-display
+Restart=always
+RestartSec=5s
+TimeoutStopSec=20s
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=raspberry-pi-oled-panel
+
+[Install]
+WantedBy=multi-user.target

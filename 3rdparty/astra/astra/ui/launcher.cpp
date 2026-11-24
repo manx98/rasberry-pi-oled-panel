@@ -13,6 +13,11 @@ namespace astra {
     Selector *Launcher::selector = {};
     Camera *Launcher::camera = {};
     std::function<void()> Launcher::rootCancelHandler = {};
+    void (*Launcher::shutdownCheckpoint)() = nullptr;
+
+    void Launcher::setShutdownCheckpoint(void (*checkpoint)()) {
+        shutdownCheckpoint = checkpoint;
+    }
 
     void Launcher::setRootCancelHandler(std::function<void()> handler) {
         rootCancelHandler = std::move(handler);
@@ -27,6 +32,7 @@ namespace astra {
         Clocker render_clocker;
         Clocker pop_clocker;
         while (true) {
+            if (shutdownCheckpoint) shutdownCheckpoint();
             render_clocker.waitUntil(getUIConfig().perFrameMills);
             render_clocker.next();
             HAL::canvasClear();
@@ -163,11 +169,14 @@ namespace astra {
     }
 
     void Launcher::update(bool clear, const std::function<void(Clocker &clocker, key::keyIndex active_key)> &render) {
+        if (shutdownCheckpoint) shutdownCheckpoint();
         static Clocker render_clocker;
         render_clocker.waitUntil(getUIConfig().perFrameMills);
+        if (shutdownCheckpoint) shutdownCheckpoint();
         render_clocker.next();
         if (clear) HAL::canvasClear();
         render(render_clocker, getKey());
+        if (shutdownCheckpoint) shutdownCheckpoint();
         HAL::canvasUpdate();
     }
 

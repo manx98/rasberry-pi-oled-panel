@@ -4,6 +4,7 @@
 
 #include <cmath>
 #include "astra_logo.h"
+#include "utils/shutdown.h"
 #include "astra/utils/clocker.h"
 #include "astra/ui/item/item.h"
 #include <astra/config/config.h>
@@ -22,6 +23,7 @@ namespace astra {
         Clocker timeout_clocker;
         bool isInit = false;
         while (true) {
+            panel_shutdown::checkpoint();
             render_clocker.waitUntil(getUIConfig().perFrameMills);
             static std::vector<float> yStars;
             static std::vector<float> yStarsTrg;

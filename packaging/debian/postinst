@@ -1,0 +1,65 @@
+#!/bin/sh
+set -e
+
+SERVICE=raspberry-pi-oled-panel.service
+
+# Stop only historical panel instances launched from /home/<user>/..., not
+# arbitrary similarly named programs or the systemd-owned /usr/bin binary.
+stop_legacy_panel() {
+    old_pids=''
+    for proc in /proc/[0-9]*; do
+        [ -d "$proc" ] || continue
+        executable=$(readlink "$proc/exe" 2>/dev/null) || continue
+        case "$executable" in
+            /home/*/raspberry_pi_oled_panel|/home/*/raspberry_pi_oled_panel\ \(deleted\))
+                old_pids="$old_pids ${proc##*/}"
+                ;;
+        esac
+    done
+    [ -n "$old_pids" ] || return 0
+    echo 'raspberry-pi-oled-panel: stopping legacy manual instance before service startup'
+    for pid in $old_pids; do kill -TERM "$pid" 2>/dev/null || :; done
+    attempts=0
+    while [ "$attempts" -lt 15 ]; do
+        still_running=0
+        for pid in $old_pids; do
+            if [ -d "/proc/$pid" ]; then still_running=1; fi
+        done
+        [ "$still_running" -eq 0 ] && break
+        sleep 1
+        attempts=$((attempts + 1))
+    done
+    for pid in $old_pids; do
+        if [ -d "/proc/$pid" ]; then
+            echo "raspberry-pi-oled-panel: old process $pid is still running; refusing to start a duplicate" >&2
+            return 1
+        fi
+    done
+    rm -f /run/raspberry-pi-oled-panel.pid
+}
+
+case "${1:-}" in
+    configure)
+        if command -v systemctl >/dev/null 2>&1; then
+            # Enable for subsequent boots, even when the package is being
+            # installed into an offline root filesystem (no running systemd).
+            systemctl enable "$SERVICE" >/dev/null
+            if [ -d /run/systemd/system ]; then
+                systemctl daemon-reload
+                if stop_legacy_panel; then
+                    # Restart on upgrades to pick up the new executable;
+                    # starts automatically on the initial installation.
+                    if ! systemctl restart "$SERVICE"; then
+                        echo "raspberry-pi-oled-panel: service failed to start; inspect journalctl -u $SERVICE" >&2
+                        # Do not leave a half-configured package when the
+                        # hardware is absent or already claimed.
+                    fi
+                else
+                    echo 'raspberry-pi-oled-panel: service not started because a legacy instance still owns the hardware' >&2
+                fi
+            fi
+        fi
+        ;;
+esac
+
+exit 0

@@ -1,9 +1,12 @@
 #include "sh1106_hal.h"
+#include "sh1106_hal/clear_display.h"
 #include "panel/display/orientation_config.h"
 #include "panel/display/orientation_policy.h"
 
 #include <u8g2port.h>
 #include <linux/gpio.h>
+#include <linux/i2c-dev.h>
+#include <cerrno>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -42,9 +45,46 @@ int requestButtons() {
 }
 
 Sh1106Hal::~Sh1106Hal() {
+    shutdown();
+}
+
+int Sh1106Hal::shutdown() noexcept {
     scanning_ = false;
     if (buttonThread_.joinable()) buttonThread_.join();
-    if (lineFd_ >= 0) close(lineFd_);
+    int status = 0;
+    if (displayInitialized_) {
+        // No more UI rendering or button overlays can race this full clear.
+        status = clearSh1106Display();
+        done_user_data(&canvasBuffer);
+        done_i2c();
+        displayInitialized_ = false;
+        if (status == 0) std::fprintf(stderr, "OLED display cleared on shutdown\n");
+    }
+    if (lineFd_ >= 0) { close(lineFd_); lineFd_ = -1; }
+    return status;
+}
+
+int clearSh1106Display() {
+    const int fd = open("/dev/i2c-1", O_RDWR | O_CLOEXEC);
+    if (fd < 0) {
+        std::perror("open OLED I2C bus for cleanup");
+        return 1;
+    }
+    if (ioctl(fd, I2C_SLAVE, i2cAddress >> 1) < 0) {
+        std::perror("select OLED I2C address for cleanup");
+        close(fd);
+        return 1;
+    }
+    const bool ok = sh1106::clearDisplay([fd](const uint8_t *data, std::size_t size) {
+        ssize_t count;
+        do { count = write(fd, data, size); } while (count < 0 && errno == EINTR);
+        if (count == static_cast<ssize_t>(size)) return true;
+        if (count >= 0) errno = EIO;
+        std::perror("clear OLED I2C write");
+        return false;
+    });
+    close(fd);
+    return ok ? 0 : 1;
 }
 
 void Sh1106Hal::init() {
@@ -56,6 +96,7 @@ void Sh1106Hal::init() {
                                           u8x8_byte_arm_linux_hw_i2c,
                                           u8x8_arm_linux_gpio_and_delay);
     init_i2c_hw(&canvasBuffer, i2cBus);
+    displayInitialized_ = true;
     u8g2_SetI2CAddress(&canvasBuffer, i2cAddress);
     u8g2_InitDisplay(&canvasBuffer);
     // SH1106 supports 180-degree flip in hardware (segment remap + COM scan

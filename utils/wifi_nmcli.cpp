@@ -1,4 +1,5 @@
 #include "utils/wifi_nmcli.h"
+#include "utils/shutdown.h"
 
 #include <cerrno>
 #include <chrono>
@@ -81,7 +82,7 @@ WifiCommandResult runNmcliInteractive(const std::vector<std::string> &args,
         const pid_t finished = ::waitpid(pid, &status, WNOHANG);
         if (finished == pid) { timedOut = false; break; }
         if (finished < 0 && errno != EINTR) { timedOut = false; break; }
-        if (std::chrono::steady_clock::now() >= deadline) break;
+        if (panel_shutdown::stopping() || std::chrono::steady_clock::now() >= deadline) break;
 
         pollfd pfd{master, static_cast<short>(POLLIN | POLLHUP), 0};
         if (::poll(&pfd, 1, 100) <= 0 || !(pfd.revents & POLLIN)) continue;
@@ -98,7 +99,8 @@ WifiCommandResult runNmcliInteractive(const std::vector<std::string> &args,
             || prompt.find("wep key") != std::string::npos) {
             std::string entry = password + '\n';
             std::size_t offset = 0;
-            while (offset < entry.size()) {
+            while (offset < entry.size() && !panel_shutdown::stopping() &&
+                   std::chrono::steady_clock::now() < deadline) {
                 const auto written = ::write(master, entry.data() + offset, entry.size() - offset);
                 if (written > 0) offset += static_cast<std::size_t>(written);
                 else if (written < 0 && errno == EINTR) continue;
@@ -131,6 +133,7 @@ WifiCommandResult runNmcliInteractive(const std::vector<std::string> &args,
 
 WifiCommandResult runNmcli(const std::vector<std::string> &args, const std::string *password) {
     if (args.empty()) return WifiCommandResult::Unavailable;
+    if (panel_shutdown::stopping()) return WifiCommandResult::Timeout;
     if (password) return runNmcliInteractive(args, *password);
     int input[2] = {-1, -1};
     if (::socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, input) != 0) {
@@ -185,7 +188,7 @@ WifiCommandResult runNmcli(const std::vector<std::string> &args, const std::stri
                        ? WifiCommandResult::Success : WifiCommandResult::Failed;
         }
         if (finished < 0 && errno != EINTR) return WifiCommandResult::Failed;
-        if (std::chrono::steady_clock::now() >= deadline) break;
+        if (panel_shutdown::stopping() || std::chrono::steady_clock::now() >= deadline) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
     ::kill(pid, SIGTERM);

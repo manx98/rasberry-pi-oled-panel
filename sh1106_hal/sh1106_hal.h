@@ -7,9 +7,13 @@
 #include <mutex>
 #include <thread>
 
+// Standalone cleanup; does not claim button GPIO or initialize the UI.
+int clearSh1106Display();
+
 class Sh1106Hal final : public HALDreamCore {
 public:
     ~Sh1106Hal() override;
+    int shutdown() noexcept;
     void init() override;
     bool _keyScan() override;
     bool _getKey(key::KEY_INDEX index) override;
@@ -27,5 +31,6 @@ private:
     TwoButtonInput buttons_;
     std::array<unsigned char, 1024> sentBuffer_{};
     bool hasSentFrame_ = false;
+    bool displayInitialized_ = false;
     int appliedRotationDegrees_ = 0;
 };

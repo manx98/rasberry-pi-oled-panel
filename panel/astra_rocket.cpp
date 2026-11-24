@@ -2,6 +2,8 @@
 // Created by Fir on 2024/3/7 007.
 //
 #include <vector>
+#include <memory>
+#include "utils/shutdown.h"
 #include "wifi.h"
 #include "astra_rocket.h"
 #include "astra_logo.h"
@@ -33,6 +35,8 @@ unsigned char testSlider = 60;
 
 
 void astraCoreInit(void) {
+    astra::Launcher::setShutdownCheckpoint(panel_shutdown::checkpoint);
+    panel_shutdown::checkpoint();
     status_idle::Config::instance().load();
     // Orientation must be loaded before SH1106 initialization and input.
     display::OrientationConfig::instance().load();
@@ -46,10 +50,13 @@ void astraCoreInit(void) {
     }
 #endif
 #ifdef USE_SDL2
-    HAL::inject(new SDLHal());
+    auto hal = std::make_unique<SDLHal>();
 #else
-    HAL::inject(new Sh1106Hal());
+    auto hal = std::make_unique<Sh1106Hal>();
 #endif
+    HAL::inject(hal.get());
+    hal.release(); // HAL now owns the initialized driver.
+    panel_shutdown::checkpoint();
 
     HAL::delay(350);
 //  astra::drawLogo(5000);
@@ -77,12 +84,22 @@ void astraCoreInit(void) {
     astra::Launcher::setRootCancelHandler(showPowerManagementDialog);
 }
 
-[[noreturn]] void astraCoreStart(void) {
-    for (;;) {  //NOLINT
+void astraCoreStart(void) {
+    while (!panel_shutdown::stopping()) {
         astra::Launcher::update();
     }
 }
 
-void astraCoreDestroy(void) {
+int astraCoreDestroy(void) {
+    int status = 0;
+#ifndef USE_SDL2
+    if (auto *hal = dynamic_cast<Sh1106Hal *>(HAL::get())) {
+        status = hal->shutdown();
+    }
+#endif
     HAL::destroy();
+#if defined(PANEL_ENABLE_FAN) && !defined(USE_SDL2)
+    fan::Controller::instance().stop();
+#endif
+    return status;
 }

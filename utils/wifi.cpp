@@ -3,6 +3,7 @@
 //
 
 #include "wifi.h"
+#include "utils/shutdown.h"
 #include "nm-shared-utils.h"
 #include "nm-utils.h"
 #include <spdlog/spdlog.h>
@@ -45,7 +46,7 @@ namespace RPI {
             // last-scan property without retaining any asynchronous callbacks.
             // Do not wait forever if NetworkManager drops the notification.
             const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(6);
-            while (std::chrono::steady_clock::now() < deadline) {
+            while (!panel_shutdown::stopping() && std::chrono::steady_clock::now() < deadline) {
                 // NMClient delivers property changes on the GLib main context.
                 // Bound the dispatch work so a busy context cannot starve
                 // the deadline check or delay the scan UI indefinitely.

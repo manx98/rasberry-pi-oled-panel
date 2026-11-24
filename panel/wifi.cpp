@@ -12,6 +12,7 @@
 #include "panel/wifi_password_dialog.h"
 #include "panel/wifi_groups_policy.h"
 #include "utils/wifi_nmcli.h"
+#include "utils/shutdown.h"
 #include "text.h"
 #include "wifi.h"
 #include "utils/wifi.h"
@@ -109,6 +110,7 @@ bool WifiScanListEvent::beforeOpen(astra::Menu *current) {
         }
         finished = true;
     });
+    panel_shutdown::JoinThread join(worker);
     astra::Launcher::progress(HAL::getSystemConfig().screenWeight - 20, &title, nullptr,
         [&](astra::Clocker &, key::keyIndex) { return !finished.load(); });
     worker.join();
@@ -156,6 +158,7 @@ bool WifiDeviceEvent::beforeOpen(astra::Menu *current) {
         }
         finished = true;
     });
+    panel_shutdown::JoinThread join(t);
     astra::TextBox title(0, {{LOADING_DEVICE_TEXT, astra::getUIConfig().mainFont}});
     astra::Launcher::progress(HAL::getSystemConfig().screenWeight - 20, &title, nullptr,
                               [&](astra::Clocker &clocker, key::keyIndex key) -> bool {
@@ -253,6 +256,7 @@ RPI::WifiCommandResult doWifiCommand(const std::function<RPI::WifiCommandResult(
         }
         done.store(true);
     });
+    panel_shutdown::JoinThread join(worker);
     astra::TextBox title(0, {{"正在处理WiFi...", astra::getUIConfig().mainFont}});
     astra::Launcher::progress(HAL::getSystemConfig().screenWeight - 20, &title, nullptr,
                               [&](astra::Clocker &, key::keyIndex) { return !done.load(); });

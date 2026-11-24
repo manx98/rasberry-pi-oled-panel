@@ -269,26 +269,12 @@ if(SPDLOG_NO_EXCEPTIONS)
     endif()
 endif()
 # ---------------------------------------------------------------------------------------
-# Build binaries
+# Build binaries. This project vendors only the spdlog library sources;
+# upstream examples, tests and benchmarks are not used by the panel.
 # ---------------------------------------------------------------------------------------
-if(SPDLOG_BUILD_EXAMPLE OR SPDLOG_BUILD_EXAMPLE_HO OR SPDLOG_BUILD_ALL)
-    message(STATUS "Generating example(s)")
-    add_subdirectory(example)
-    spdlog_enable_warnings(example)
-    if(SPDLOG_BUILD_EXAMPLE_HO)
-        spdlog_enable_warnings(example_header_only)
-    endif()
-endif()
-
-if(SPDLOG_BUILD_TESTS OR SPDLOG_BUILD_TESTS_HO OR SPDLOG_BUILD_ALL)
-    message(STATUS "Generating tests")
-    enable_testing()
-    add_subdirectory(tests)
-endif()
-
-if(SPDLOG_BUILD_BENCH OR SPDLOG_BUILD_ALL)
-    message(STATUS "Generating benchmarks")
-    add_subdirectory(bench)
+if(SPDLOG_BUILD_EXAMPLE OR SPDLOG_BUILD_EXAMPLE_HO OR SPDLOG_BUILD_TESTS OR
+   SPDLOG_BUILD_TESTS_HO OR SPDLOG_BUILD_BENCH OR SPDLOG_BUILD_ALL)
+    message(FATAL_ERROR "Vendored spdlog examples, tests and benchmarks were removed. Build them from the upstream spdlog repository instead.")
 endif()
 
 # ---------------------------------------------------------------------------------------
